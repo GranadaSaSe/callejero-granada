@@ -3,34 +3,13 @@
 // derecha según el lado por el que sale, yendo del inicio al final del eje.
 import { crear, miles, normalizar, rellenar } from '../crear.js'
 import { cargar } from '../datos.js'
-
-const CLAVES = { propios: 'callejero-ejes-propios', ocultos: 'callejero-ejes-ocultos', sabidos: 'callejero-ejes-sabidos' }
-const DISTRITOS = ['Centro', 'Albaicín', 'Beiro', 'Chana', 'Genil', 'Norte', 'Ronda', 'Zaidín']
-
-// Un eje es una calle larga e importante con bastantes cruces. Las carreteras con código, los accesos y
-// las plazas o glorietas no cuentan. Cada persona puede añadir o quitar ejes a su gusto.
-const esEjePorDefecto = (c) =>
-  !/^(Carretera [A-Z]{1,2}-|Acceso|Autov)/.test(c.nombre) &&
-  !['Plaza', 'Placeta', 'Glorieta'].includes(c.tipo) &&
-  ((c.importancia === 1 && c.cruces.length >= 5) ||
-    (c.importancia <= 2 && c.cruces.length >= 8 && c.longitud >= 400) ||
-    (c.importancia === 3 && c.cruces.length >= 15 && c.longitud >= 600))
-
-function leer(clave) {
-  try {
-    return new Set(JSON.parse(localStorage.getItem(clave)) ?? [])
-  } catch {
-    return new Set()
-  }
-}
-
-function guardar(clave, conjunto) {
-  try {
-    localStorage.setItem(clave, JSON.stringify([...conjunto]))
-  } catch {
-    // Sin almacenamiento (modo privado): los cambios duran solo mientras la app esté abierta
-  }
-}
+import {
+  CLAVES_EJES as CLAVES,
+  DISTRITOS,
+  esEjePorDefecto,
+  guardarConjunto as guardar,
+  leerConjunto as leer,
+} from '../ejes-lista.js'
 
 function textoSentido(c) {
   const desde = c.inicio[0] ?? 'el principio'
