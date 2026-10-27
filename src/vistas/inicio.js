@@ -15,7 +15,7 @@ const SECCIONES = [
   { titulo: 'Mapa de estudio', texto: 'Calles, sentidos, distritos, barrios y lugares de interés', enlace: '#/mapa' },
   { titulo: 'Ejes principales', texto: 'Las grandes vías y sus cruces, en orden', enlace: '#/ejes' },
   { titulo: 'Tarjetas de repaso', texto: 'Lo que fallas vuelve antes', enlace: '#/tarjetas' },
-  { titulo: 'Test por temas', texto: 'Preguntas tipo examen con explicación' },
+  { titulo: 'Test tipo examen', texto: 'Por temas, con penalización, nota y corrección', enlace: '#/test' },
 ]
 
 function fila(texto) {

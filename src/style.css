@@ -1072,6 +1072,160 @@ li[data-ok='si'] .estado {
   outline-offset: 2px;
 }
 
+/* Test tipo examen */
+
+.opciones-examen {
+  display: grid;
+  gap: 8px;
+}
+
+.opcion-examen {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px;
+  border: 2px solid var(--borde);
+  border-radius: 12px;
+  background: var(--fondo);
+  font-size: 16px;
+  line-height: 1.3;
+  text-align: left;
+  cursor: pointer;
+}
+
+.opcion-examen .letra {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border: 2px solid var(--texto-suave);
+  border-radius: 50%;
+  font-weight: 700;
+}
+
+.opcion-examen[aria-pressed='true'] {
+  border-color: var(--rojo);
+  background: color-mix(in srgb, var(--rojo) 12%, var(--tarjeta));
+}
+
+.opcion-examen[aria-pressed='true'] .letra {
+  border-color: var(--rojo);
+  background: var(--rojo);
+  color: #ffffff;
+}
+
+.acciones-examen {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.acciones-examen .boton {
+  padding: 10px 6px;
+}
+
+.boton:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.mapa-preguntas {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.numero {
+  padding: 8px 0;
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  background: var(--tarjeta);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.numero.contestada {
+  background: color-mix(in srgb, var(--verde) 25%, var(--tarjeta));
+}
+
+.numero.dudosa {
+  border: 2px solid #f57c00;
+}
+
+.numero.actual {
+  outline: 2px solid var(--rojo);
+  outline-offset: 1px;
+  font-weight: 700;
+}
+
+.nota-grande {
+  margin: 0 0 12px !important;
+  font-size: 48px;
+  font-weight: 800;
+  line-height: 1;
+  text-align: center;
+}
+
+.nota-grande span {
+  color: var(--texto-suave);
+  font-size: 16px;
+  font-weight: 400;
+}
+
+.lista-correccion {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.correccion {
+  padding: 12px 14px;
+  border: 1px solid var(--borde);
+  border-left-width: 5px;
+  border-radius: 12px;
+  background: var(--tarjeta);
+}
+
+.correccion-bien {
+  border-left-color: var(--verde);
+}
+
+.correccion-mal {
+  border-left-color: #d32f2f;
+}
+
+.correccion-blanco {
+  border-left-color: var(--pendiente);
+}
+
+.opciones-corregidas {
+  margin: 8px 0;
+  padding: 0;
+  list-style: none;
+  font-size: 15px;
+}
+
+.opciones-corregidas li {
+  padding: 2px 0;
+  color: var(--texto-suave);
+}
+
+.opciones-corregidas .es-correcta {
+  color: var(--verde);
+  font-weight: 700;
+}
+
+.opciones-corregidas .es-tuya {
+  color: #d32f2f;
+  text-decoration: line-through;
+}
+
 .cargando {
   position: absolute;
   inset: 0;

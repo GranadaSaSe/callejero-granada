@@ -102,7 +102,13 @@ export function crearTarjetas({ calles, lugares, ejes }) {
   }
 
   const rango = (l) => (ORDEN_LUGARES.indexOf(l.categoria) + 1 || ORDEN_LUGARES.length + 1)
-  for (const l of [...lugares].filter((x) => x.direccion).sort((a, b) => rango(a) - rango(b))) {
+  // Fuera los lugares cuya dirección repite su nombre ("Plaza X" en "Plaza X, 11"): se responden solos
+  const simple = (texto) => texto.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+  const seRespondeSolo = (l) => {
+    const calle = simple(l.direccion.split(',')[0])
+    return calle.includes(simple(l.nombre)) || simple(l.nombre).includes(calle)
+  }
+  for (const l of [...lugares].filter((x) => x.direccion && !seRespondeSolo(x)).sort((a, b) => rango(a) - rango(b))) {
     mazos.lugares.push({
       id: `lugares:${l.id}`,
       mazo: 'lugares',
@@ -111,7 +117,7 @@ export function crearTarjetas({ calles, lugares, ejes }) {
       pregunta: `¿En qué calle está ${l.nombre}?`,
       respuesta: l.direccion,
       detalle: [
-        `${l.categoria} · ${[l.distrito, l.barrio].filter(Boolean).join(', ')}`,
+        `${l.categoria} · ${[l.distrito, l.barrio].filter(Boolean).join(', ')}.`,
         l.direccionSegun !== 'osm' && 'Dirección aproximada (portal más cercano).',
       ]
         .filter(Boolean)
