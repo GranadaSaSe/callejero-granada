@@ -276,6 +276,77 @@ li[data-ok='si'] .estado {
 .mapa-estudio .mapa-lienzo {
   position: absolute;
   inset: 0;
+  /* Que mantener pulsado el mapa deje una nota en vez de seleccionar texto o abrir menús */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.ayuda-capas {
+  margin: 0 0 6px 26px;
+  color: var(--texto-suave);
+  font-size: 13px;
+}
+
+.aviso-dudas {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-left: 4px solid #f57c00;
+  border-radius: 8px;
+  background: var(--fondo);
+  font-size: 14px;
+}
+
+.aviso-dudas p {
+  margin: 4px 0 0;
+}
+
+.chip-nota {
+  margin-top: 12px;
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 10px 0;
+  color: var(--texto-suave);
+  font-size: 14px;
+}
+
+.campo select,
+.campo textarea {
+  padding: 8px 10px;
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+  background: var(--fondo);
+  color: var(--texto);
+  font: inherit;
+  font-size: 16px;
+}
+
+.lista-notas {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lista-notas li {
+  padding: 10px 12px;
+  border: 1px solid var(--borde);
+  border-radius: 12px;
+  background: var(--fondo);
+}
+
+.lista-notas p {
+  margin: 2px 0 6px;
+  font-size: 14px;
+}
+
+.lista-notas small {
+  color: var(--texto-suave);
 }
 
 .mapa-arriba {
@@ -361,6 +432,8 @@ li[data-ok='si'] .estado {
   right: 12px;
   z-index: 3;
   width: 270px;
+  max-height: calc(100% - 90px);
+  overflow-y: auto;
   padding: 6px 16px 14px;
   border-radius: 14px;
   background: var(--tarjeta);

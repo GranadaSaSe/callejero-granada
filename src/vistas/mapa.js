@@ -13,6 +13,7 @@ import urlTrabajador from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { crear, miles, normalizar } from '../crear.js'
 import { cargar, GRUPOS, grupoDe } from '../datos.js'
+import { alCambiarNotas, anadirNota, borrarNota, describirFecha, leerNotas, TIPOS } from '../notas.js'
 
 setWorkerUrl(urlTrabajador)
 
@@ -27,6 +28,7 @@ const COLORES_DISTRITO = {
   Zaidín: '#a5d39f',
 }
 const CLAVE_AJUSTES = 'callejero-mapa-capas'
+const PALABRAS_SENTIDO = { unico: 'sentido único', doble: 'doble sentido', peatonal: 'peatonal' }
 const NADA = ['==', ['get', 'via'], -1]
 
 function leerAjustes() {
@@ -67,9 +69,97 @@ const TEXTO_CALLE = {
   'symbol-spacing': 300,
   'text-padding': 2,
 }
-const HALO = { 'text-color': '#3b332c', 'text-halo-color': '#ffffff', 'text-halo-width': 1.6 }
+// Los nombres que solo vienen de OpenStreetMap (vías sin nombre en el callejero oficial) van en gris
+const HALO = {
+  'text-color': ['case', ['get', 'osm'], '#857a70', '#3b332c'],
+  'text-halo-color': '#ffffff',
+  'text-halo-width': 1.6,
+}
+const ES_DUDOSO = ['==', ['get', 'dudoso'], true]
 
-function estilo(base, tramos, zonas, lugares) {
+// Las flechas de sentido se añaden después de su imagen (ver 'style.load'): si la capa existe antes que
+// la imagen, MapLibre se queda un rato esperándola
+const CAPA_FLECHAS = {
+  id: 'flechas',
+  type: 'symbol',
+  source: 'tramos',
+  minzoom: 15,
+  filter: ['==', ['get', 'sentido'], 'unico'],
+  layout: {
+    'symbol-placement': 'line',
+    'symbol-spacing': 70,
+    'icon-image': 'flecha',
+    'icon-rotation-alignment': 'map',
+    'icon-allow-overlap': true,
+    'icon-ignore-placement': true,
+    'icon-size': ['interpolate', ['linear'], ['zoom'], 15, 0.7, 18, 1.1],
+  },
+}
+
+// Une los tramos de cada calle en líneas largas para escribir su nombre: en un tramo corto (casi la mitad
+// miden menos de 40 m) no cabe el nombre y el mapa no lo escribe.
+function lineasParaNombres(tramos) {
+  const grupos = new Map()
+  for (const f of tramos.features) {
+    const nombre = f.properties.nombre ?? f.properties.nombreOsm
+    if (!nombre) continue
+    const clave = f.properties.nombre ? f.properties.via : `osm:${nombre}`
+    if (!grupos.has(clave)) grupos.set(clave, { nombre, osm: !f.properties.nombre, importancia: 6, lineas: [] })
+    const grupo = grupos.get(clave)
+    grupo.importancia = Math.min(grupo.importancia, f.properties.importancia)
+    grupo.lineas.push(f.geometry.coordinates)
+  }
+  const clave = (p) => `${p[0]},${p[1]}`
+  const lineas = []
+  for (const grupo of grupos.values()) {
+    const enPunto = new Map()
+    grupo.lineas.forEach((l, i) => {
+      for (const p of [l[0], l.at(-1)]) {
+        if (!enPunto.has(clave(p))) enPunto.set(clave(p), [])
+        enPunto.get(clave(p)).push(i)
+      }
+    })
+    const usadas = new Set()
+    // La línea sigue por el único tramo que continúa en ese punto (si la calle se bifurca, se corta ahí)
+    const siguiente = (p) => {
+      const aqui = enPunto.get(clave(p)) ?? []
+      const libres = aqui.filter((i) => !usadas.has(i))
+      return aqui.length === 2 && libres.length === 1 ? libres[0] : null
+    }
+    grupo.lineas.forEach((primera, i) => {
+      if (usadas.has(i)) return
+      usadas.add(i)
+      let linea = [...primera]
+      for (let j = siguiente(linea.at(-1)); j !== null; j = siguiente(linea.at(-1))) {
+        usadas.add(j)
+        const otra = grupo.lineas[j]
+        linea = linea.concat(clave(otra[0]) === clave(linea.at(-1)) ? otra.slice(1) : [...otra].reverse().slice(1))
+      }
+      for (let j = siguiente(linea[0]); j !== null; j = siguiente(linea[0])) {
+        usadas.add(j)
+        const otra = grupo.lineas[j]
+        linea = (clave(otra.at(-1)) === clave(linea[0]) ? otra.slice(0, -1) : [...otra].reverse().slice(0, -1)).concat(linea)
+      }
+      lineas.push({
+        type: 'Feature',
+        properties: { nombre: grupo.nombre, importancia: grupo.importancia, osm: grupo.osm },
+        geometry: { type: 'LineString', coordinates: linea },
+      })
+    })
+  }
+  return { type: 'FeatureCollection', features: lineas }
+}
+
+const puntosDeNotas = (notas) => ({
+  type: 'FeatureCollection',
+  features: notas.map((n) => ({
+    type: 'Feature',
+    properties: { id: n.id, enviada: Boolean(n.enviada) },
+    geometry: { type: 'Point', coordinates: n.punto },
+  })),
+})
+
+function estilo(base, { tramos, zonas, lugares, nombres, notas }) {
   const esNivel = (nivel) => ['==', ['get', 'nivel'], nivel]
   return {
     version: 8,
@@ -78,6 +168,8 @@ function estilo(base, tramos, zonas, lugares) {
       tramos: { type: 'geojson', data: tramos },
       zonas: { type: 'geojson', data: zonas },
       lugares: { type: 'geojson', data: lugares },
+      nombres: { type: 'geojson', data: nombres },
+      notas: { type: 'geojson', data: notas },
     },
     layers: [
       { id: 'fondo', type: 'background', paint: { 'background-color': '#f3efe8' } },
@@ -130,6 +222,18 @@ function estilo(base, tramos, zonas, lugares) {
         paint: { 'line-color': '#b3261e', 'line-width': anchoCalle(3), 'line-opacity': 0.8 },
       },
       {
+        id: 'dudosos-linea',
+        type: 'line',
+        source: 'tramos',
+        minzoom: 14,
+        filter: ES_DUDOSO,
+        paint: {
+          'line-color': '#f57c00',
+          'line-width': ['interpolate', ['linear'], ['zoom'], 14, 1.5, 18, 4],
+          'line-dasharray': [1, 1.5],
+        },
+      },
+      {
         id: 'barrios-borde',
         type: 'line',
         source: 'zonas',
@@ -145,22 +249,6 @@ function estilo(base, tramos, zonas, lugares) {
           'line-color': '#7a5c45',
           'line-width': ['interpolate', ['linear'], ['zoom'], 11, 1.5, 16, 3],
           'line-opacity': 0.7,
-        },
-      },
-      {
-        id: 'flechas',
-        type: 'symbol',
-        source: 'tramos',
-        minzoom: 15,
-        filter: ['==', ['get', 'sentido'], 'unico'],
-        layout: {
-          'symbol-placement': 'line',
-          'symbol-spacing': 70,
-          'icon-image': 'flecha',
-          'icon-rotation-alignment': 'map',
-          'icon-allow-overlap': true,
-          'icon-ignore-placement': true,
-          'icon-size': ['interpolate', ['linear'], ['zoom'], 15, 0.7, 18, 1.1],
         },
       },
       {
@@ -188,20 +276,37 @@ function estilo(base, tramos, zonas, lugares) {
         },
       },
       {
-        id: 'nombres-principales',
+        id: 'dudosos',
         type: 'symbol',
         source: 'tramos',
+        minzoom: 15,
+        filter: ES_DUDOSO,
+        layout: {
+          'symbol-placement': 'line-center',
+          'text-field': '?',
+          'text-font': ['Noto Sans Bold'],
+          'text-size': 16,
+          'text-allow-overlap': true,
+          'text-ignore-placement': true,
+          'text-rotation-alignment': 'viewport',
+        },
+        paint: { 'text-color': '#e65100', 'text-halo-color': '#ffffff', 'text-halo-width': 2 },
+      },
+      {
+        id: 'nombres-principales',
+        type: 'symbol',
+        source: 'nombres',
         minzoom: 14,
-        filter: ['all', ['to-boolean', ['get', 'nombre']], ['<=', ['get', 'importancia'], 3]],
+        filter: ['<=', ['get', 'importancia'], 3],
         layout: TEXTO_CALLE,
         paint: HALO,
       },
       {
         id: 'nombres-resto',
         type: 'symbol',
-        source: 'tramos',
+        source: 'nombres',
         minzoom: 15.5,
-        filter: ['all', ['to-boolean', ['get', 'nombre']], ['>', ['get', 'importancia'], 3]],
+        filter: ['>', ['get', 'importancia'], 3],
         layout: TEXTO_CALLE,
         paint: HALO,
       },
@@ -245,6 +350,17 @@ function estilo(base, tramos, zonas, lugares) {
           'text-letter-spacing': 0.08,
         },
         paint: { 'text-color': '#5b4636', 'text-halo-color': 'rgba(255, 255, 255, 0.9)', 'text-halo-width': 2 },
+      },
+      {
+        id: 'notas',
+        type: 'circle',
+        source: 'notas',
+        paint: {
+          'circle-color': ['case', ['get', 'enviada'], '#8d6e63', '#b3261e'],
+          'circle-radius': 8,
+          'circle-stroke-color': '#ffffff',
+          'circle-stroke-width': 2.5,
+        },
       },
     ],
   }
@@ -333,7 +449,13 @@ export async function abrir(contenedor) {
 
   const mapa = new Mapa({
     container: lienzo,
-    style: estilo(`${location.origin}${import.meta.env.BASE_URL}`, tramos, zonas, puntosLugares),
+    style: estilo(`${location.origin}${import.meta.env.BASE_URL}`, {
+      tramos,
+      zonas,
+      lugares: puntosLugares,
+      nombres: lineasParaNombres(tramos),
+      notas: puntosDeNotas(leerNotas()),
+    }),
     bounds: [
       [-3.65, 37.15],
       [-3.57, 37.2],
@@ -356,8 +478,9 @@ export async function abrir(contenedor) {
   )
   mapa.addControl(new NavigationControl({ showCompass: false }), 'bottom-right')
   mapa.addControl(new ScaleControl({ unit: 'metric' }), 'bottom-left')
-  mapa.on('styleimagemissing', (e) => {
-    if (e.id === 'flecha') mapa.addImage('flecha', crearFlecha(), { pixelRatio: 2 })
+  mapa.on('style.load', () => {
+    if (!mapa.hasImage('flecha')) mapa.addImage('flecha', crearFlecha(), { pixelRatio: 2 })
+    if (!mapa.getLayer('flechas')) mapa.addLayer(CAPA_FLECHAS, 'lugares')
   })
 
   // Margen para que lo elegido no quede tapado por la ficha
@@ -417,7 +540,7 @@ export async function abrir(contenedor) {
     }
   }
 
-  function elegirCalle(c, centrar = false) {
+  function elegirCalle(c, centrar = false, punto = null) {
     mapa.setFilter('seleccion', ['==', ['get', 'via'], c.id])
     mapa.setFilter('lugar-elegido', ['==', ['get', 'id'], ''])
     const aqui = lugares.filter((l) => l.via === c.id)
@@ -448,10 +571,107 @@ export async function abrir(contenedor) {
           aqui.map((l) => crear('button', { class: 'chip chip-lugar', onclick: () => elegirLugar(l, true) }, l.nombre)),
         ),
       ],
-      c.tramosDudosos > 0 &&
-        crear('p', { class: 'ficha-nota' }, `Sentido pendiente de revisar en ${c.tramosDudosos} tramo${c.tramosDudosos > 1 ? 's' : ''}.`),
+      c.dudas &&
+        crear(
+          'div',
+          { class: 'aviso-dudas' },
+          crear('strong', {}, 'Sentido por revisar (marcado con «?» en el mapa)'),
+          c.dudas.map((d) =>
+            crear(
+              'p',
+              {},
+              `${d.tramos} tramo${d.tramos > 1 ? 's' : ''}: el callejero oficial dice ${PALABRAS_SENTIDO[d.oficial]} y OpenStreetMap, ${PALABRAS_SENTIDO[d.osm]}.`,
+            ),
+          ),
+        ),
+      botonNota(() => punto ?? limitesCalle.get(c.id).getCenter().toArray(), { calle: c }),
     ])
     if (centrar) mapa.fitBounds(limitesCalle.get(c.id), { padding: margen(), maxZoom: 17, duration: 700 })
+  }
+
+  // Vía sin nombre en el callejero oficial a la que OpenStreetMap sí pone nombre
+  function elegirViaSinNombre(tramo, punto) {
+    mapa.setFilter('seleccion', ['==', ['get', 'id'], tramo.properties.id])
+    mapa.setFilter('lugar-elegido', ['==', ['get', 'id'], ''])
+    mostrarFicha([
+      crear('p', { class: 'ficha-tipo' }, 'Nombre según OpenStreetMap'),
+      crear('h2', {}, tramo.properties.nombreOsm),
+      crear('p', { class: 'ficha-nota' }, 'En el callejero oficial esta vía aparece sin nombre.'),
+      botonNota(() => punto, { tramo: tramo.properties.id }),
+    ])
+  }
+
+  // Botón para dejar una nota sobre lo que se está viendo en la ficha
+  const botonNota = (punto, sobre) =>
+    crear('button', { class: 'chip chip-nota', onclick: () => formularioNota(punto(), sobre) }, '✎ Dejar una nota')
+
+  // Formulario de nota nueva (pulsación larga, clic derecho o botón de la ficha)
+  function formularioNota(punto, sobre = {}) {
+    const tipo = crear('select', {}, TIPOS.map((t) => crear('option', { value: t }, t)))
+    const comentario = crear('textarea', { rows: 3, placeholder: 'Qué está mal y cómo debería ser (opcional)' })
+    const titulo = sobre.calle?.nombre ?? sobre.lugar?.nombre ?? 'Punto del mapa'
+    mostrarFicha([
+      crear('p', { class: 'ficha-tipo' }, 'Nueva nota'),
+      crear('h2', {}, titulo),
+      crear('label', { class: 'campo' }, 'Qué pasa', tipo),
+      crear('label', { class: 'campo' }, 'Comentario', comentario),
+      crear(
+        'div',
+        { class: 'acciones-eje' },
+        crear(
+          'button',
+          {
+            class: 'boton',
+            onclick: () => {
+              const nota = anadirNota({
+                tipo: tipo.value,
+                comentario: comentario.value,
+                punto,
+                calle: sobre.calle ? { id: sobre.calle.id, nombre: sobre.calle.nombre } : null,
+                lugar: sobre.lugar ? { id: sobre.lugar.id, nombre: sobre.lugar.nombre } : null,
+                tramo: sobre.tramo ?? null,
+              })
+              verNota(nota, true)
+            },
+          },
+          'Guardar nota',
+        ),
+        crear('button', { class: 'boton secundario', onclick: () => cerrarFicha() }, 'Cancelar'),
+      ),
+      crear('p', { class: 'ficha-nota' }, 'Se guarda en este dispositivo. Para enviársela a Claude: Inicio → Mis notas.'),
+    ])
+  }
+
+  function verNota(nota, recienGuardada = false) {
+    mapa.setFilter('seleccion', nota.calle ? ['==', ['get', 'via'], nota.calle.id] : NADA)
+    mostrarFicha([
+      crear('p', { class: 'ficha-tipo' }, recienGuardada ? 'Nota guardada' : `Nota · ${describirFecha(nota.fecha)}`),
+      crear('h2', {}, nota.tipo),
+      crear('p', {}, nota.comentario?.trim() || 'Sin comentario'),
+      crear(
+        'dl',
+        { class: 'ficha-datos' },
+        nota.calle && dato('Calle', nota.calle.nombre),
+        nota.lugar && dato('Lugar', nota.lugar.nombre),
+        dato('Estado', nota.enviada ? `Enviada el ${describirFecha(nota.enviada)}` : 'Sin enviar'),
+      ),
+      crear(
+        'div',
+        { class: 'acciones-eje' },
+        crear('a', { class: 'boton secundario', href: '#/inicio' }, 'Ir a Mis notas'),
+        crear(
+          'button',
+          {
+            class: 'boton secundario',
+            onclick: () => {
+              borrarNota(nota.id)
+              cerrarFicha()
+            },
+          },
+          'Borrar',
+        ),
+      ),
+    ])
   }
 
   function elegirLugar(l, centrar = false) {
@@ -468,26 +688,89 @@ export async function abrir(contenedor) {
         dato('Barrio', l.barrio ?? '—'),
       ),
       l.direccion && l.direccionSegun !== 'osm' && crear('p', { class: 'ficha-nota' }, 'Dirección aproximada: la del portal más cercano.'),
-      calle && crear('button', { class: 'chip', onclick: () => elegirCalle(calle, true) }, `Ver ${calle.nombre}`),
+      crear(
+        'div',
+        { class: 'chips' },
+        calle && crear('button', { class: 'chip', onclick: () => elegirCalle(calle, true) }, `Ver ${calle.nombre}`),
+        botonNota(() => l.punto, { lugar: l, calle }),
+      ),
     ])
     if (centrar) mapa.easeTo({ center: l.punto, zoom: Math.max(mapa.getZoom(), 16.5), padding: margen(), duration: 700 })
   }
 
+  // Qué hay bajo un punto de la pantalla: una nota, un lugar, una calle o una vía sin nombre oficial
+  function queHayEn(pixel) {
+    const caja = [
+      [pixel.x - 8, pixel.y - 8],
+      [pixel.x + 8, pixel.y + 8],
+    ]
+    const buscarEn = (capas) => mapa.queryRenderedFeatures(caja, { layers: capas.filter((c) => mapa.getLayer(c)) })
+    const nota = buscarEn(['notas'])[0]
+    const lugar = buscarEn(['lugares'])[0]
+    const tramos = buscarEn(['calles', 'calles-peatonales'])
+    return {
+      nota: nota && leerNotas().find((n) => n.id === nota.properties.id),
+      lugar: lugar && lugarPorId.get(lugar.properties.id),
+      calle: callePorId.get(tramos.find((f) => callePorId.has(f.properties.via))?.properties.via),
+      sinNombre: tramos.find((f) => f.properties.nombreOsm),
+    }
+  }
+
+  let ignorarClic = false
   mapa.on('click', (e) => {
     resultados.hidden = true
-    const caja = [
-      [e.point.x - 8, e.point.y - 8],
-      [e.point.x + 8, e.point.y + 8],
-    ]
-    const lugar = mapa.queryRenderedFeatures(caja, { layers: ['lugares'] })[0]
-    if (lugar) return elegirLugar(lugarPorId.get(lugar.properties.id))
-    const tramo = mapa
-      .queryRenderedFeatures(caja, { layers: ['calles', 'calles-peatonales'] })
-      .find((f) => callePorId.has(f.properties.via))
-    if (tramo) return elegirCalle(callePorId.get(tramo.properties.via))
+    if (ignorarClic) return
+    const aqui = queHayEn(e.point)
+    const punto = e.lngLat.toArray()
+    if (aqui.nota) return verNota(aqui.nota)
+    if (aqui.lugar) return elegirLugar(aqui.lugar)
+    if (aqui.calle) return elegirCalle(aqui.calle, false, punto)
+    if (aqui.sinNombre) return elegirViaSinNombre(aqui.sinNombre, punto)
     cerrarFicha()
   })
-  for (const capa of ['lugares', 'calles', 'calles-peatonales']) {
+
+  // Nota nueva con clic derecho (ordenador) o manteniendo pulsado (móvil y tablet)
+  function notaEn(e) {
+    const aqui = queHayEn(e.point)
+    formularioNota(e.lngLat.toArray(), {
+      calle: aqui.calle,
+      lugar: aqui.lugar,
+      tramo: aqui.sinNombre?.properties.id,
+    })
+  }
+  mapa.on('contextmenu', (e) => {
+    e.preventDefault()
+    e.originalEvent.preventDefault() // que no salga el menú del navegador
+    notaEn(e)
+  })
+  let pulsacion = null
+  const cancelarPulsacion = () => {
+    clearTimeout(pulsacion?.temporizador)
+    pulsacion = null
+  }
+  mapa.on('touchstart', (e) => {
+    cancelarPulsacion()
+    if (e.points.length !== 1) return
+    pulsacion = {
+      inicio: e.point,
+      temporizador: setTimeout(() => {
+        pulsacion = null
+        ignorarClic = true
+        setTimeout(() => (ignorarClic = false), 800)
+        navigator.vibrate?.(30)
+        notaEn(e)
+      }, 600),
+    }
+  })
+  mapa.on('touchmove', (e) => {
+    if (pulsacion && Math.hypot(e.point.x - pulsacion.inicio.x, e.point.y - pulsacion.inicio.y) > 10) cancelarPulsacion()
+  })
+  mapa.on('touchend', cancelarPulsacion)
+  mapa.on('touchcancel', cancelarPulsacion)
+  mapa.on('movestart', (e) => e.originalEvent && cancelarPulsacion())
+  alCambiarNotas((notas) => mapa.getSource('notas')?.setData(puntosDeNotas(notas)))
+
+  for (const capa of ['notas', 'lugares', 'calles', 'calles-peatonales']) {
     mapa.on('mouseenter', capa, () => (mapa.getCanvas().style.cursor = 'pointer'))
     mapa.on('mouseleave', capa, () => (mapa.getCanvas().style.cursor = ''))
   }
@@ -545,18 +828,38 @@ export async function abrir(contenedor) {
   })
 
   // Panel de capas: qué se ve en el mapa (se recuerda en este dispositivo)
-  const ajustes = { zonas: true, sentidos: true, grupos: GRUPOS.map((g) => g.nombre), ...leerAjustes() }
+  const ajustes = {
+    zonas: true,
+    sentidos: true,
+    dudosos: true,
+    nombresCalles: true,
+    nombresLugares: true,
+    notas: true,
+    grupos: GRUPOS.map((g) => g.nombre),
+    ...leerAjustes(),
+  }
+  const CAPAS = {
+    zonas: ['barrios-relleno', 'barrios-borde', 'distritos-borde', 'barrios-nombres', 'distritos-nombres'],
+    sentidos: ['flechas'],
+    dudosos: ['dudosos', 'dudosos-linea'],
+    nombresCalles: ['nombres-principales', 'nombres-resto'],
+    nombresLugares: ['lugares-nombres'],
+    notas: ['notas'],
+  }
   function aplicarAjustes() {
     guardarAjustes(ajustes)
-    const visible = (si) => (si ? 'visible' : 'none')
-    for (const capa of ['barrios-relleno', 'barrios-borde', 'distritos-borde', 'barrios-nombres', 'distritos-nombres']) {
-      mapa.setLayoutProperty(capa, 'visibility', visible(ajustes.zonas))
+    for (const [ajuste, capas] of Object.entries(CAPAS)) {
+      for (const capa of capas) mapa.setLayoutProperty(capa, 'visibility', ajustes[ajuste] ? 'visible' : 'none')
     }
-    mapa.setLayoutProperty('flechas', 'visibility', visible(ajustes.sentidos))
     const filtro = ['in', ['get', 'grupo'], ['literal', ajustes.grupos]]
     mapa.setFilter('lugares', filtro)
     mapa.setFilter('lugares-nombres', filtro)
   }
+  const casillaDe = (ajuste, texto) =>
+    casilla(texto, ajustes[ajuste], (si) => {
+      ajustes[ajuste] = si
+      aplicarAjustes()
+    })
   const casilla = (texto, marcada, alCambiar, color) =>
     crear(
       'label',
@@ -567,16 +870,15 @@ export async function abrir(contenedor) {
     )
   panelCapas.append(
     crear('h3', {}, 'Qué ver en el mapa'),
-    casilla('Distritos y barrios', ajustes.zonas, (si) => {
-      ajustes.zonas = si
-      aplicarAjustes()
-    }),
-    casilla('Flechas de sentido', ajustes.sentidos, (si) => {
-      ajustes.sentidos = si
-      aplicarAjustes()
-    }),
+    casillaDe('nombresCalles', 'Nombres de las calles'),
+    casillaDe('nombresLugares', 'Nombres de los lugares'),
+    crear('p', { class: 'ayuda-capas' }, 'Quita los nombres para estudiar con un mapa mudo.'),
+    casillaDe('zonas', 'Distritos y barrios'),
+    casillaDe('sentidos', 'Flechas de sentido'),
+    casillaDe('dudosos', 'Sentidos por revisar (?)'),
+    casillaDe('notas', 'Mis notas'),
     crear('h3', {}, 'Lugares de interés'),
-    GRUPOS.map((g) =>
+    ...GRUPOS.map((g) =>
       casilla(
         g.nombre,
         ajustes.grupos.includes(g.nombre),
@@ -602,14 +904,19 @@ export async function abrir(contenedor) {
   )
 
   return {
-    // #/mapa?calle=123 abre la ficha de esa calle; #/mapa?lugar=n456, la de ese lugar
+    // #/mapa?calle=123 abre la ficha de esa calle; #/mapa?lugar=n456, la de ese lugar; #/mapa?nota=abc, esa nota
     async mostrar(parametros) {
       mapa.resize()
       await cargado
       const calle = callePorId.get(Number(parametros?.get('calle')))
       const lugar = lugarPorId.get(parametros?.get('lugar'))
+      const nota = leerNotas().find((n) => n.id === parametros?.get('nota'))
       if (calle) elegirCalle(calle, true)
       else if (lugar) elegirLugar(lugar, true)
+      else if (nota) {
+        verNota(nota)
+        mapa.easeTo({ center: nota.punto, zoom: Math.max(mapa.getZoom(), 17), padding: margen(), duration: 700 })
+      }
     },
   }
 }

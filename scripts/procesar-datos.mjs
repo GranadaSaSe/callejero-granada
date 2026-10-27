@@ -548,6 +548,8 @@ function importanciaDeCalle(via) {
   return [...metros].reduce((a, b) => (b[1] > a[1] ? b : a))[0]
 }
 
+const simple = (sentido) => (sentido === 'directo' || sentido === 'inverso' ? 'unico' : sentido)
+
 const calles = []
 for (const via of vias.values()) {
   if (via.sinNombre || !via.tramos.length) continue
@@ -579,6 +581,15 @@ for (const via of vias.values()) {
     codigosPostales: unicos(via.portales.map((p) => p.cp).filter(Boolean)).sort(),
     partes: r.partes,
     tramosDudosos: via.tramos.filter((t) => t.dudoso).length,
+    // Qué dice cada fuente en los tramos que faltan por revisar ("unico", "doble" o "peatonal")
+    ...(via.tramos.some((t) => t.dudoso) && {
+      dudas: contarValores(via.tramos.filter((t) => t.dudoso).map((t) => `${simple(t.cdau)}|${simple(t.osm)}`)).map(
+        ([par, tramos]) => {
+          const [oficial, osm] = par.split('|')
+          return { oficial, osm, tramos }
+        },
+      ),
+    }),
   })
 }
 calles.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
@@ -597,6 +608,8 @@ await guardar(
           id: t.id,
           via: t.via,
           nombre: nombreVia(t.via),
+          // Vías sin nombre en el callejero oficial a las que OpenStreetMap sí pone nombre
+          ...(!nombreVia(t.via) && t.nombreOsm && !/[ÃÂ]/.test(t.nombreOsm) && { nombreOsm: t.nombreOsm }),
           importancia: importanciaDeTramo(t),
           sentido: unico ? 'unico' : t.sentido,
           fuente: t.revisado ? 'revision' : t.cdau ? 'cdau' : t.osm ? 'osm' : null,
