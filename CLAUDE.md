@@ -13,7 +13,7 @@ App web instalable (PWA) para preparar la prueba de callejero de la oposición d
 ## Estado
 
 - Paso 0 terminado salvo el 0.8: "Hola Granada" publicada en https://granadasase.github.io/callejero-granada/ e instalada y probada en modo avión en Android e iPhone. El material de estudio irá a `material/` (no se sube a GitHub).
-- Fase 1 en curso en la rama `fase1-datos` (se une a `main` cuando la app tenga algo nuevo que enseñar). Pasos 1.1, 1.2, 1.4, 1.5, 1.6, 1.7, 1.8 y 1.9 hechos (versión 0.8.0 en la rama; publicada en `main` la 0.7.0). Paso 1.3: el mapa de revisión está hecho y la persona va revisando los tramos dudosos poco a poco (207 a 27-10-2026). Siguiente: 1.10 (estadísticas).
+- Fase 1 en curso en la rama `fase1-datos` (se une a `main` cuando la app tenga algo nuevo que enseñar). Pasos 1.1, 1.2, 1.4, 1.5, 1.6, 1.7, 1.8 y 1.9 hechos (versión 0.8.0 publicada en `main`). Paso 1.3: el mapa de revisión está hecho y la persona va revisando los tramos dudosos poco a poco (207 a 27-10-2026). Siguiente: 1.10 (estadísticas).
 
 ## App
 
