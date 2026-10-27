@@ -12,7 +12,8 @@ App web instalable (PWA) para preparar la prueba de callejero de la oposición d
 
 ## Estado
 
-- Paso 0 en curso: carpeta, Git, Node.js, cuenta de GitHub y página "Hola Granada" hechos. Falta crear el repositorio en GitHub, publicar y probar la instalación en Android e iPhone.
+- Paso 0 casi terminado: "Hola Granada" publicada en https://granadasase.github.io/callejero-granada/. Falta probar la instalación y el modo sin internet en Android e iPhone (0.7) y reunir el material (0.8).
+- Para subir cambios (`git push`) se usa el inicio de sesión guardado por Git Credential Manager; si pide credenciales, lanzar el push en el panel de Terminal para que se abra el navegador.
 
 ## Datos del examen que usa la app
 
