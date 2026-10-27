@@ -63,6 +63,10 @@ const [limites, callesOsm, edificiosOsm, carreterasOsm, municipiosOsm, viales, t
     ].map((n) => leer(`${n}.json`)),
   )
 const fechaDescarga = (await readdir(CRUDOS)).filter((n) => n.startsWith('descarga-')).sort().at(-1)?.slice(9, 19)
+// Decisiones tomadas a mano en el mapa de revisión (paso 1.3): mandan sobre el CDAU y OpenStreetMap
+const revisiones = await readFile(join(RAIZ, 'datos', 'revisiones.json'), 'utf8')
+  .then(JSON.parse)
+  .catch(() => ({ tramos: {} }))
 await mkdir(SALIDA, { recursive: true })
 
 // 1. Distritos y barrios (OpenStreetMap)
@@ -157,7 +161,7 @@ for (const w of callesOsm.elements) {
   const t = w.tags
   const unico =
     ['yes', '1', 'true'].includes(t.oneway) || (t.junction === 'roundabout' && t.oneway !== 'no') ? 1 : t.oneway === '-1' ? -1 : 0
-  const dato = { unico, peatonal: PEATONALES.has(t.highway), nombre: t.name ?? null }
+  const dato = { unico, peatonal: PEATONALES.has(t.highway), nombre: t.name ?? null, clase: t.highway }
   const linea = w.geometry.map((p) => [p.lon, p.lat])
   for (let i = 1; i < linea.length; i++) indiceOsm.anadir(linea[i - 1], linea[i], dato)
 }
@@ -172,7 +176,7 @@ function parejaOsm(linea) {
     const cos = cosenoEntre(seg, [c.a, c.b])
     if (d < 12 && Math.abs(cos) > 0.8 && (!mejor || d < mejor.d)) mejor = { d, cos, ...c.dato }
   }
-  if (!mejor) return { sentido: null, nombre: null }
+  if (!mejor) return { sentido: null, nombre: null, clase: null }
   const sentido = mejor.peatonal
     ? 'peatonal'
     : mejor.unico === 0
@@ -180,7 +184,7 @@ function parejaOsm(linea) {
       : mejor.unico * Math.sign(mejor.cos) > 0
         ? 'directo'
         : 'inverso'
-  return { sentido, nombre: mejor.nombre }
+  return { sentido, nombre: mejor.nombre, clase: mejor.clase }
 }
 
 const tramos = []
@@ -190,6 +194,7 @@ for (const f of tramosCdau.features) {
   const via = viaDelTramo(f.properties.id_tramo, linea)
   const cdau = SENTIDO_CDAU[f.properties.circulacion] ?? null
   const osm = parejaOsm(linea)
+  const revisado = revisiones.tramos[f.properties.id_tramo]?.sentido ?? null
   const tramo = {
     id: f.properties.id_tramo,
     via,
@@ -197,8 +202,10 @@ for (const f of tramosCdau.features) {
     cdau,
     osm: osm.sentido,
     nombreOsm: osm.nombre,
-    sentido: cdau ?? osm.sentido ?? 'desconocido',
-    dudoso: Boolean(cdau && osm.sentido && cdau !== osm.sentido),
+    clase: osm.clase,
+    revisado,
+    sentido: revisado ?? cdau ?? osm.sentido ?? 'desconocido',
+    dudoso: !revisado && Boolean(cdau && osm.sentido && cdau !== osm.sentido),
     longitud: longitud(linea),
   }
   tramos.push(tramo)
@@ -502,7 +509,7 @@ await guardar(
           id: t.id,
           via: t.via,
           sentido: unico ? 'unico' : t.sentido,
-          fuente: t.cdau ? 'cdau' : t.osm ? 'osm' : null,
+          fuente: t.revisado ? 'revision' : t.cdau ? 'cdau' : t.osm ? 'osm' : null,
           ...(t.dudoso && { dudoso: true }),
         },
         geometry: { type: 'LineString', coordinates: redondear(simplificar(linea, 1)) },
@@ -510,6 +517,42 @@ await guardar(
     }),
   ),
 )
+
+// Tramos dudosos para el mapa de revisión, de las calles principales a las secundarias.
+// "directo" e "inverso" se refieren al sentido en que está dibujada la línea (del primer punto al último).
+const IMPORTANCIA = {
+  trunk: 1, primary: 1, primary_link: 1, secondary: 2, secondary_link: 2, tertiary: 3, tertiary_link: 3,
+  unclassified: 4, residential: 4, living_street: 5, service: 5, road: 5,
+}
+const importanciaDeVia = new Map()
+for (const via of vias.values()) {
+  importanciaDeVia.set(via.id, Math.min(6, ...via.tramos.map((t) => IMPORTANCIA[t.clase] ?? 6)))
+}
+const longitudDeVia = (via) => via.tramos.reduce((s, t) => s + t.longitud, 0)
+const dudosos = tramos
+  .filter((t) => t.dudoso)
+  .map((t) => {
+    const via = vias.get(t.via)
+    return {
+      id: t.id,
+      via: t.via,
+      calle: via.sinNombre ? 'Vía sin nombre' : via.nombre,
+      importancia: importanciaDeVia.get(t.via),
+      longitudCalle: Math.round(longitudDeVia(via)),
+      orden: via.tramos.indexOf(t),
+      oficial: t.cdau,
+      osm: t.osm,
+      callesAlInicio: callesEnNodo(clave(t.linea[0]), via),
+      callesAlFinal: callesEnNodo(clave(t.linea.at(-1)), via),
+      longitud: Math.round(t.longitud),
+      linea: redondear(t.linea, 6),
+    }
+  })
+  .sort(
+    (a, b) =>
+      a.importancia - b.importancia || b.longitudCalle - a.longitudCalle || a.via - b.via || a.orden - b.orden,
+  )
+await writeFile(join(RAIZ, 'datos', 'dudosos.json'), JSON.stringify(dudosos))
 
 // 5. Lugares de interés (OpenStreetMap) con su dirección
 const viasPorClave = new Map()
@@ -659,6 +702,7 @@ const lineasInforme = [
   `- ${miles(calles.length)} calles con nombre oficial (CDAU); ${[...vias.values()].filter((v) => v.sinNombre).length} vías sin nombre aparte.`,
   `- ${miles(tramos.length)} tramos; ${tramos.filter((t) => t.via === null).length} sin calle asignada.`,
   `- Sentido de circulación según: ${porFuente.map(([f, n]) => `${f} ${miles(n)}`).join(', ')}.`,
+  `- ${miles(tramos.filter((t) => t.revisado).length)} tramos ya revisados a mano en el mapa de revisión.`,
   `- **${miles(tramos.filter((t) => t.dudoso).length)} tramos dudosos**: el CDAU y OpenStreetMap dicen cosas distintas. Hay que revisarlos (paso 1.3).`,
   '',
   '| CDAU dice | OpenStreetMap dice | Tramos dudosos |',

@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Revisión de sentidos · Callejero Granada</title>
+    <link rel="icon" href="/favicon.ico" />
+    <link rel="stylesheet" href="/vendor/maplibre/maplibre-gl.css" />
+    <link rel="stylesheet" href="/revision.css" />
+    <script type="module" src="/revision.js"></script>
+  </head>
+  <body>
+    <div class="disposicion">
+      <div id="mapa" class="mapa"></div>
+
+      <aside class="panel">
+        <header class="cabecera">
+          <h1>Revisión de sentidos</h1>
+          <p id="progreso" class="progreso">Cargando datos…</p>
+          <div class="barra"><div id="barra" class="barra-relleno"></div></div>
+          <label class="filtro">
+            Revisar
+            <select id="filtro">
+              <option value="6">todas las calles</option>
+              <option value="3">solo vías principales y secundarias</option>
+            </select>
+          </label>
+        </header>
+
+        <section id="ficha" class="ficha" hidden>
+          <p id="importancia" class="etiqueta"></p>
+          <h2 id="calle"></h2>
+          <p id="detalle" class="detalle"></p>
+
+          <p class="pregunta">¿Cómo se circula por el tramo marcado en negro?</p>
+          <div class="opciones">
+            <button class="opcion" data-eleccion="oficial">
+              <span class="muestra azul"></span>
+              <span class="texto"><strong>Callejero oficial</strong><span id="texto-oficial"></span></span>
+              <kbd>1</kbd>
+            </button>
+            <button class="opcion" data-eleccion="osm">
+              <span class="muestra naranja"></span>
+              <span class="texto"><strong>OpenStreetMap</strong><span id="texto-osm"></span></span>
+              <kbd>2</kbd>
+            </button>
+          </div>
+          <details id="otras">
+            <summary>Ninguno de los dos <kbd>3</kbd></summary>
+            <div id="otras-opciones" class="opciones"></div>
+          </details>
+
+          <div class="acciones">
+            <button id="saltar" class="secundario">No lo sé, saltar <kbd>S</kbd></button>
+            <button id="deshacer" class="secundario" disabled>Deshacer <kbd>Z</kbd></button>
+          </div>
+          <div class="enlaces">
+            <a id="street-view" target="_blank" rel="noopener">Ver en Street View ↗</a>
+            <label><input type="checkbox" id="foto" /> Foto aérea</label>
+          </div>
+          <p id="error" class="error" hidden></p>
+        </section>
+
+        <section id="terminado" class="ficha" hidden>
+          <h2>¡No quedan tramos por revisar!</h2>
+          <p>Tus decisiones están guardadas. Dile a Claude que vuelva a procesar los datos para aplicarlas.</p>
+        </section>
+
+        <footer class="leyenda">
+          <p><span class="linea azul"></span> Callejero oficial <span class="linea naranja"></span> OpenStreetMap</p>
+          <p>Flechas: sentido único · Línea continua: doble sentido · Línea discontinua: peatonal</p>
+          <p>Cada decisión se guarda al momento en la carpeta del proyecto.</p>
+        </footer>
+      </aside>
+    </div>
+  </body>
+</html>

@@ -22,6 +22,7 @@ Generado el 2026-10-27 con los datos descargados el 2026-10-27. Se vuelve a crea
 - 2495 calles con nombre oficial (CDAU); 231 vías sin nombre aparte.
 - 9401 tramos; 0 sin calle asignada.
 - Sentido de circulación según: callejero oficial (CDAU) 6739, OpenStreetMap 2535, sin dato 127.
+- 0 tramos ya revisados a mano en el mapa de revisión.
 - **1438 tramos dudosos**: el CDAU y OpenStreetMap dicen cosas distintas. Hay que revisarlos (paso 1.3).
 
 | CDAU dice | OpenStreetMap dice | Tramos dudosos |

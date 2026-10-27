@@ -8,6 +8,12 @@
       "port": 4173
     },
     {
+      "name": "revision",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["scripts/servidor-revision.mjs", "--sin-abrir"],
+      "port": 4321
+    },
+    {
       "name": "desarrollo",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--", "--port", "5173", "--strictPort"],

@@ -13,7 +13,7 @@ App web instalable (PWA) para preparar la prueba de callejero de la oposición d
 ## Estado
 
 - Paso 0 terminado salvo el 0.8: "Hola Granada" publicada en https://granadasase.github.io/callejero-granada/ e instalada y probada en modo avión en Android e iPhone. El material de estudio irá a `material/` (no se sube a GitHub).
-- Fase 1 en curso en la rama `fase1-datos` (se une a `main` cuando la app tenga algo nuevo que enseñar). Pasos 1.1 y 1.2 hechos; siguiente: 1.3 (hoja de revisión).
+- Fase 1 en curso en la rama `fase1-datos` (se une a `main` cuando la app tenga algo nuevo que enseñar). Pasos 1.1 y 1.2 hechos. Paso 1.3: el mapa de revisión está hecho y la persona va revisando los tramos dudosos poco a poco; mientras, se puede seguir con el 1.4.
 - Cifras y pendientes de los datos: `datos/informe-datos.md` (se regenera con `npm run datos:procesar`).
 
 ## Datos
@@ -22,6 +22,7 @@ App web instalable (PWA) para preparar la prueba de callejero de la oposición d
 - Calles y tramos: del CDAU (oficial). Se muestra el nombre como lo escribe OSM si es equivalente (el CDAU a veces quita tildes y artículos); el oficial queda en `nombreOficial`.
 - Sentido de circulación: del CDAU y, si no lo trae, de OSM. Códigos del campo `circulacion` del CDAU, deducidos comparando con OSM: 311/331 único en el sentido del dibujo, 322/332 único al revés, 333 doble, 330 peatonal. Si las dos fuentes no coinciden, el tramo es "dudoso" y se revisa a mano.
 - Inicio y fin de cada calle: donde empieza la numeración (portales del CDAU); sin portales, el extremo más cercano al Ayuntamiento.
+- Mapa de revisión (paso 1.3): doble clic en `Revisar datos.bat` (o `npm run revisar`) abre http://localhost:4321/ con los tramos de `datos/dudosos.json`, de las calles principales a las secundarias. Cada decisión se guarda en `datos/revisiones.json`. Cuando la persona diga que ha revisado, ejecutar `npm run datos:procesar` (aplica las decisiones y rehace `dudosos.json`) y hacer commit de `datos/` y `public/datos/`. Para probarlo desde Claude: configuración `revision` de `.claude/launch.json` (apagarla después, usa el mismo puerto).
 - Distritos y barrios: OSM, 8 distritos y 32 barrios. Confirmado que el Zaidín tiene un solo barrio (Zaidín - Vergeles).
 - Lugares de interés y carreteras: OSM. Parques de Bomberos Norte (Av. Juan Pablo II) y Sur (C/ Antonio Dalmases) son los probables orígenes de los trayectos.
 - Para subir cambios (`git push`) se usa el inicio de sesión guardado por Git Credential Manager; si pide credenciales, lanzar el push en el panel de Terminal para que se abra el navegador.
