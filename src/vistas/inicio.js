@@ -1,4 +1,5 @@
 // Pantalla de inicio: accesos a cada sección y estado de la app en este dispositivo.
+import { diasDesdeLaUltimaCopia, guardarCopia, hayProgreso, leerCopia, recuperarCopia } from '../copia.js'
 import { crear, rellenar } from '../crear.js'
 import {
   alCambiarNotas,
@@ -34,10 +35,13 @@ function fila(texto) {
 let avisoNotas = ''
 
 function filaNota(n) {
+  // Las notas sobre preguntas no tienen punto en el mapa: se enlaza a su calle, lugar o eje si lo hay
+  const enlace = n.punto ? `#/mapa?nota=${encodeURIComponent(n.id)}` : n.pregunta?.enlace
   return crear(
     'li',
     {},
     crear('strong', {}, n.tipo),
+    n.pregunta && crear('p', { class: 'nota-pregunta' }, `${n.pregunta.modo}: «${n.pregunta.texto}»`),
     crear('p', {}, [n.calle?.nombre ?? n.lugar?.nombre, n.comentario?.trim()].filter(Boolean).join(' · ') || 'Sin comentario'),
     crear(
       'small',
@@ -51,7 +55,7 @@ function filaNota(n) {
     crear(
       'div',
       { class: 'chips' },
-      crear('a', { class: 'chip', href: `#/mapa?nota=${encodeURIComponent(n.id)}` }, 'Ver en el mapa'),
+      enlace && crear('a', { class: 'chip', href: enlace }, enlace.startsWith('#/ejes') ? 'Ver el eje' : 'Ver en el mapa'),
       crear('button', { class: 'chip', onclick: () => confirm('¿Borrar esta nota?') && borrarNota(n.id) }, 'Borrar'),
     ),
   )
@@ -97,7 +101,8 @@ function pintarNotas(tarjeta) {
       'p',
       {},
       'Si ves algo mal en el mapa, mantén pulsado ese sitio (en el ordenador, clic derecho) y deja una nota. ' +
-        'Luego compártelas en un archivo, por WhatsApp por ejemplo.',
+        'En las tarjetas y los tests, usa el botón «✎ Nota» de cada pregunta. ' +
+        'Luego compártelas todas en un archivo, por WhatsApp por ejemplo.',
     ),
     crear('label', { class: 'campo' }, 'Tu nombre, para que se sepa de quién son tus notas', nombre),
     propias.length > 0 && [crear('h3', {}, `Mis notas (${propias.length})`), crear('ul', { class: 'lista-notas' }, [...propias].reverse().map(filaNota))],
@@ -119,11 +124,86 @@ function pintarNotas(tarjeta) {
   )
 }
 
+// Copia de seguridad del progreso (paso 1.8): guardarla en un archivo y recuperarla
+let avisoCopia = ''
+
+function pintarCopia(tarjeta, avisoArriba) {
+  const dias = diasDesdeLaUltimaCopia()
+  // Recordatorio semanal arriba del todo, si hay progreso que perder
+  const tocaCopia = hayProgreso() && (dias === null || dias >= 7)
+  avisoArriba.hidden = !tocaCopia
+  avisoArriba.textContent =
+    dias === null ? 'Aún no has guardado una copia de tu progreso. Toca aquí para hacerla.' : `Hace ${dias} días de tu última copia de seguridad. Toca aquí para hacer otra.`
+  const archivo = crear('input', { type: 'file', accept: '.txt,.json,text/plain,application/json', hidden: true })
+  archivo.addEventListener('change', async () => {
+    try {
+      const { fecha, datos } = await leerCopia(archivo.files[0])
+      const cuando = fecha ? describirFecha(fecha) : 'fecha desconocida'
+      if (confirm(`Copia del ${cuando}. Se sustituirá todo lo que la app tiene guardado en este dispositivo. ¿Seguir?`)) {
+        recuperarCopia(datos)
+        location.reload() // para que todas las pantallas lean lo recuperado
+        return
+      }
+      avisoCopia = ''
+    } catch {
+      avisoCopia = 'Ese archivo no es una copia de la app.'
+    }
+    pintarCopia(tarjeta, avisoArriba)
+  })
+  rellenar(
+    tarjeta,
+    crear('h2', {}, 'Copia de seguridad'),
+    crear(
+      'p',
+      {},
+      'Tu progreso (tarjetas, tests, ejes, notas y ajustes) solo está guardado en este dispositivo. ' +
+        'Guarda una copia de vez en cuando, por si cambias de móvil o se borran los datos.',
+    ),
+    crear(
+      'p',
+      { class: tocaCopia ? 'aviso-copia' : 'ficha-nota' },
+      dias === null ? 'Todavía no has guardado ninguna copia.' : dias === 0 ? 'Última copia: hoy.' : `Última copia: hace ${dias} día${dias === 1 ? '' : 's'}.`,
+    ),
+    crear(
+      'div',
+      { class: 'acciones-eje' },
+      crear(
+        'button',
+        {
+          class: 'boton',
+          onclick: async () => {
+            const resultado = await guardarCopia()
+            avisoCopia = {
+              compartido: 'Copia guardada. Ponla en un sitio seguro (Drive, Archivos, tu WhatsApp…).',
+              descargado: 'Se ha descargado el archivo de la copia. Guárdalo en un sitio seguro.',
+              cancelado: '',
+            }[resultado]
+            pintarCopia(tarjeta, avisoArriba)
+          },
+        },
+        'Guardar copia',
+      ),
+      crear('button', { class: 'boton secundario', onclick: () => archivo.click() }, 'Recuperar una copia'),
+    ),
+    archivo,
+    avisoCopia && crear('p', { class: 'aviso-notas', role: 'status' }, avisoCopia),
+  )
+}
+
 export function abrir(contenedor) {
   const instalada = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true
   const tarjetaNotas = crear('section', { class: 'tarjeta' })
   pintarNotas(tarjetaNotas)
   alCambiarNotas(() => pintarNotas(tarjetaNotas))
+  const tarjetaCopia = crear('section', { class: 'tarjeta', id: 'copia' })
+  const avisoCopiaArriba = crear('button', {
+    class: 'aviso-copia-arriba',
+    hidden: true,
+    onclick: () => tarjetaCopia.scrollIntoView({ behavior: 'smooth' }),
+  })
+  pintarCopia(tarjetaCopia, avisoCopiaArriba)
+  // Las notas también cuentan como progreso: al crear una, puede tocar avisar de la copia
+  alCambiarNotas(() => pintarCopia(tarjetaCopia, avisoCopiaArriba))
   const filaInstalada = fila('Instalada en la pantalla de inicio')
   const filaSinInternet = fila('Lista para usarse sin internet')
   const conexion = crear('strong')
@@ -138,6 +218,7 @@ export function abrir(contenedor) {
         crear('img', { class: 'logo', src: `${import.meta.env.BASE_URL}icon.svg`, alt: '', width: 56, height: 56 }),
         crear('div', {}, crear('p', { class: 'etiqueta' }, 'Bomberos de Granada'), crear('h1', {}, 'Callejero Granada')),
       ),
+      avisoCopiaArriba,
       crear(
         'ul',
         { class: 'secciones' },
@@ -158,6 +239,7 @@ export function abrir(contenedor) {
         ),
       ),
       tarjetaNotas,
+      tarjetaCopia,
       crear(
         'section',
         { class: 'tarjeta' },

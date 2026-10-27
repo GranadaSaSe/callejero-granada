@@ -1238,3 +1238,91 @@ li[data-ok='si'] .estado {
   color: var(--texto-suave);
   text-align: center;
 }
+
+/* Notas sobre preguntas (tarjetas, Kahoot y examen) */
+
+.tarjeta-repaso,
+.correccion {
+  position: relative;
+}
+
+.boton-nota {
+  float: right;
+  margin: -8px -6px 6px 10px;
+  padding: 4px 10px;
+  border: 1px solid var(--borde);
+  border-radius: 999px;
+  background: var(--fondo);
+  color: var(--texto-suave);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.boton-nota:hover {
+  border-color: var(--texto-suave);
+  color: var(--texto);
+}
+
+.ventana-nota {
+  width: min(440px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  padding: 18px 18px 14px;
+  border: 1px solid var(--borde);
+  border-radius: 18px;
+  background: var(--tarjeta);
+  color: var(--texto);
+  box-shadow: var(--sombra);
+}
+
+.ventana-nota::backdrop {
+  background: rgba(20, 15, 10, 0.55);
+}
+
+.ventana-nota .ficha-nota {
+  margin: 12px 0 0;
+  color: var(--texto-suave);
+  font-size: 13px;
+}
+
+.pregunta-citada {
+  margin: 8px 0 4px;
+  padding: 8px 12px;
+  border-left: 4px solid var(--borde);
+  border-radius: 8px;
+  background: var(--fondo);
+  font-size: 15px;
+}
+
+.nota-pregunta {
+  color: var(--texto-suave);
+  font-style: italic;
+}
+
+/* Copia de seguridad */
+
+.aviso-copia {
+  color: #c25e00;
+  font-weight: 600;
+}
+
+.aviso-copia-arriba {
+  display: block;
+  width: 100%;
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border: 1px solid #f57c00;
+  border-radius: 12px;
+  background: var(--tarjeta);
+  color: var(--texto);
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+@media (prefers-color-scheme: dark) {
+  .aviso-copia {
+    color: #ffb05c;
+  }
+}

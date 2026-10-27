@@ -42,7 +42,7 @@ for (const ruta of rutas) {
 
 const porCalle = new Map()
 for (const n of notas.values()) {
-  const clave = n.calle?.nombre ?? n.lugar?.nombre ?? 'Sin calle'
+  const clave = n.calle?.nombre ?? n.lugar?.nombre ?? (n.pregunta ? 'Preguntas sin calle concreta' : 'Sin calle')
   if (!porCalle.has(clave)) porCalle.set(clave, [])
   porCalle.get(clave).push(n)
 }
@@ -56,9 +56,20 @@ for (const [sitio, lista] of [...porCalle].sort((a, b) => b[1].length - a[1].len
     console.log(`   Ahora en los datos: ${SENTIDOS[calle.sentido] ?? 'sin datos'}${dudas ? ` · por revisar: ${dudas}` : ''} · id ${calle.id}`)
   }
   for (const n of lista) {
-    const [lon, lat] = n.punto.map((x) => Number(x).toFixed(6))
     console.log(`   - [${n.autor}] ${n.tipo}: ${n.comentario?.trim() || '(sin comentario)'}`)
-    console.log(`     ${lat}, ${lon} · https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=19/${lat}/${lon}${n.tramo ? ` · tramo ${n.tramo}` : ''}`)
+    if (n.punto) {
+      const [lon, lat] = n.punto.map((x) => Number(x).toFixed(6))
+      console.log(`     ${lat}, ${lon} · https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=19/${lat}/${lon}${n.tramo ? ` · tramo ${n.tramo}` : ''}`)
+    }
+    // Nota sobre una pregunta de las tarjetas o de los tests
+    if (n.pregunta) {
+      const p = n.pregunta
+      console.log(`     ${p.modo} · tarjeta ${p.id ?? '?'}`)
+      console.log(`     Pregunta: ${p.texto}`)
+      console.log(`     Respuesta de la app: ${p.respuesta}`)
+      if (p.opciones?.length) console.log(`     Opciones: ${p.opciones.join(' | ')}`)
+      if (p.elegida) console.log(`     Contestó: ${p.elegida}`)
+    }
   }
   console.log('')
 }

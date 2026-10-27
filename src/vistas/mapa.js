@@ -161,7 +161,8 @@ function lineasParaNombres(tramos) {
 
 const puntosDeNotas = (notas) => ({
   type: 'FeatureCollection',
-  features: notas.map((n) => ({
+  // Las notas sobre preguntas no tienen punto: no salen en el mapa
+  features: notas.filter((n) => n.punto).map((n) => ({
     type: 'Feature',
     properties: { id: n.id, estado: n.importada ? 'ajena' : n.compartida ? 'compartida' : 'nueva' },
     geometry: { type: 'Point', coordinates: n.punto },
@@ -927,7 +928,7 @@ export async function abrir(contenedor) {
       await cargado
       const calle = callePorId.get(Number(parametros?.get('calle')))
       const lugar = lugarPorId.get(parametros?.get('lugar'))
-      const nota = leerNotas().find((n) => n.id === parametros?.get('nota'))
+      const nota = leerNotas().find((n) => n.id === parametros?.get('nota') && n.punto)
       if (calle) elegirCalle(calle, true)
       else if (lugar) elegirLugar(lugar, true)
       else if (nota) {

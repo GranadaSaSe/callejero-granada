@@ -5,6 +5,7 @@ import { crear, rellenar } from '../crear.js'
 import { cargar } from '../datos.js'
 import { DISTRITOS, ejesActuales } from '../ejes-lista.js'
 import { corregir, crearExamen, NIVELES, TEMAS } from '../examen-datos.js'
+import { buscadorDeReferencias, notaAbierta, notaDePregunta } from '../nota-pregunta.js'
 import { calificar } from '../repaso.js'
 
 const CLAVES = {
@@ -43,7 +44,7 @@ function guardar(clave, valor) {
 }
 
 const nota = (n) => n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-const reloj = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`
+const textoReloj = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`
 const fecha = (iso) => new Date(iso).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })
 
 export async function abrir(contenedor) {
@@ -63,6 +64,32 @@ export async function abrir(contenedor) {
   let teclas = null // atajos de teclado mientras se hace el test
   let temporizador = null
   const subir = () => contenedor.closest('.vistas')?.scrollTo(0, 0)
+  const referenciaDe = buscadorDeReferencias(calles, lugares)
+
+  // Botón "✎ Nota" de cada pregunta: sugerencias o quejas que van a Inicio → Notas
+  const botonNota = (p, elegida, pausa, modo = 'Test tipo examen') =>
+    crear(
+      'button',
+      {
+        class: 'boton-nota',
+        title: 'Dejar una nota sobre esta pregunta',
+        onclick: () =>
+          notaDePregunta(
+            {
+              modo,
+              pregunta: p.pregunta,
+              respuesta: p.opciones[p.correcta],
+              opciones: p.opciones,
+              elegida: elegida == null ? null : p.opciones[elegida],
+              id: p.id,
+              enlace: p.enlace,
+              ...referenciaDe(p.enlace),
+            },
+            pausa,
+          ),
+      },
+      '✎ Nota',
+    )
 
   const cambiarAjuste = (cambio) => {
     Object.assign(ajustes, cambio)
@@ -176,8 +203,17 @@ export async function abrir(contenedor) {
     const dudosas = new Set()
     let actual = 0
     const limite = ajustes.conTiempo ? total * SEGUNDOS_POR_PREGUNTA : null
-    const inicio = Date.now()
-    const quedan = () => Math.max(0, limite - (Date.now() - inicio) / 1000)
+    let inicio = Date.now()
+    let pausaDesde = null // el reloj se para mientras se escribe una nota
+    const ahora = () => pausaDesde ?? Date.now()
+    const quedan = () => Math.max(0, limite - (ahora() - inicio) / 1000)
+    const reloj = {
+      alAbrir: () => (pausaDesde = Date.now()),
+      alCerrar: () => {
+        inicio += Date.now() - pausaDesde
+        pausaDesde = null
+      },
+    }
 
     function pintar() {
       const p = preguntas[actual]
@@ -188,11 +224,12 @@ export async function abrir(contenedor) {
           'div',
           { class: 'barra-sesion' },
           crear('button', { class: 'enlace-discreto', onclick: abandonar }, '← Salir'),
-          crear('span', { class: 'reloj' }, limite ? `Quedan ${reloj(quedan())}` : `${contestadas} de ${total} contestadas`),
+          crear('span', { class: 'reloj' }, limite ? `Quedan ${textoReloj(quedan())}` : `${contestadas} de ${total} contestadas`),
         ),
         crear(
           'article',
           { class: 'tarjeta-repaso' },
+          botonNota(p, respuestas[actual], reloj),
           crear('p', { class: 'etiqueta' }, `Pregunta ${actual + 1} de ${total} · ${NOMBRE_TEMA[p.tema]}`),
           crear('h2', { class: 'pregunta-tarjeta' }, p.pregunta),
           crear(
@@ -270,7 +307,7 @@ export async function abrir(contenedor) {
     if (limite) {
       temporizador = setInterval(() => {
         const marcador = pagina.querySelector('.reloj')
-        if (marcador) marcador.textContent = `Quedan ${reloj(quedan())}`
+        if (marcador) marcador.textContent = `Quedan ${textoReloj(quedan())}`
         if (quedan() <= 0) entregar(true)
       }, 1000)
     }
@@ -319,6 +356,7 @@ export async function abrir(contenedor) {
           return crear(
             'li',
             { class: `correccion correccion-${estado(i)}` },
+            botonNota(p, respuestas[i], undefined, 'Corrección del test tipo examen'),
             crear('p', { class: 'etiqueta' }, `${i + 1}. ${marca}${dudosas.has(i) ? ' · dudosa' : ''} · ${NOMBRE_TEMA[p.tema]}`),
             crear('strong', {}, p.pregunta),
             crear(
@@ -398,7 +436,8 @@ export async function abrir(contenedor) {
   }
 
   document.addEventListener('keydown', (e) => {
-    if (!teclas || contenedor.hidden || e.target.matches('input, select, textarea') || e.ctrlKey || e.metaKey || e.altKey) return
+    if (!teclas || contenedor.hidden || notaAbierta() || e.target.matches('input, select, textarea') || e.ctrlKey || e.metaKey || e.altKey)
+      return
     teclas(e)
   })
 

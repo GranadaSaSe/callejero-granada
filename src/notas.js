@@ -4,9 +4,21 @@
 // (por WhatsApp, por ejemplo). Quien lo recibe puede abrirlo en su app para verlas en el mapa, o
 // guardarlo en la carpeta notas-recibidas/ del proyecto para que Claude las lea (npm run notas).
 
+import { compartirArchivo, paraNombreDeArchivo } from './archivos.js'
+
 const CLAVE = 'callejero-notas'
 const CLAVE_AUTOR = 'callejero-autor'
 export const MARCA_DATOS = '--- DATOS PARA LA APP (no borrar) ---'
+
+// Para las notas sobre preguntas (tarjetas, test Kahoot y test tipo examen)
+export const TIPOS_PREGUNTA = [
+  'La respuesta de la app está mal',
+  'Hay más de una respuesta buena',
+  'La pregunta no se entiende',
+  'Las opciones son confusas',
+  'Sobra esta pregunta',
+  'Otro',
+]
 
 export const TIPOS = [
   'Sentido de circulación incorrecto',
@@ -70,22 +82,25 @@ export const borrarNota = (id) => guardarNotas(leerNotas().filter((n) => n.id !=
 export const describirFecha = (iso) =>
   new Date(iso).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })
 
-const sinAcentos = (texto) =>
-  texto
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[^A-Za-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
+const sinAcentos = paraNombreDeArchivo
 
 function textoDe(n, i) {
-  const [lon, lat] = n.punto.map((x) => x.toFixed(6))
-  return [
+  const lineas = [
     `${i + 1}. ${n.tipo}${n.calle ? ` — ${n.calle.nombre}` : n.lugar ? ` — ${n.lugar.nombre}` : ''}`,
     `   ${n.comentario?.trim() || '(sin comentario)'}`,
-    `   Punto: ${lat}, ${lon} · https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=19/${lat}/${lon}`,
-    `   Fecha: ${describirFecha(n.fecha)}`,
-    '',
-  ].join('\n')
+  ]
+  // Nota sobre una pregunta (tarjetas, test Kahoot o test tipo examen)
+  if (n.pregunta) {
+    lineas.push(`   En: ${n.pregunta.modo}`, `   Pregunta: ${n.pregunta.texto}`, `   Respuesta de la app: ${n.pregunta.respuesta}`)
+    if (n.pregunta.opciones?.length) lineas.push(`   Opciones: ${n.pregunta.opciones.join(' | ')}`)
+    if (n.pregunta.elegida) lineas.push(`   Contestó: ${n.pregunta.elegida}`)
+  }
+  if (n.punto) {
+    const [lon, lat] = n.punto.map((x) => x.toFixed(6))
+    lineas.push(`   Punto: ${lat}, ${lon} · https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=19/${lat}/${lon}`)
+  }
+  lineas.push(`   Fecha: ${describirFecha(n.fecha)}`, '')
+  return lineas.join('\n')
 }
 
 // Archivo de texto con las notas: se lee bien a simple vista y al final lleva los datos para la app
@@ -103,8 +118,8 @@ export function archivoDeNotas(notas) {
       version: 1,
       autor,
       fecha: ahora,
-      notas: notas.map(({ id, fecha, tipo, comentario, punto, calle, lugar, tramo }) => ({
-        id, fecha, tipo, comentario, punto, calle, lugar, tramo,
+      notas: notas.map(({ id, fecha, tipo, comentario, punto, calle, lugar, tramo, pregunta }) => ({
+        id, fecha, tipo, comentario, punto, calle, lugar, tramo, pregunta,
       })),
     }),
     '',
@@ -114,33 +129,13 @@ export function archivoDeNotas(notas) {
   })
 }
 
-function descargar(archivo) {
-  const direccion = URL.createObjectURL(archivo)
-  const enlace = Object.assign(document.createElement('a'), { href: direccion, download: archivo.name })
-  document.body.append(enlace)
-  enlace.click()
-  enlace.remove()
-  setTimeout(() => URL.revokeObjectURL(direccion), 10_000)
-}
-
 // Comparte las notas propias en un archivo: en el móvil abre el menú de compartir (WhatsApp...),
 // en el ordenador lo descarga. Devuelve 'compartido', 'descargado', 'cancelado' o 'nada'.
 export async function compartirNotas({ todas = false } = {}) {
   const propias = leerNotas().filter((n) => !n.importada && (todas || !n.compartida))
   if (!propias.length) return 'nada'
-  const archivo = archivoDeNotas(propias)
-  let resultado = 'descargado'
-  if (navigator.canShare?.({ files: [archivo] })) {
-    try {
-      await navigator.share({ files: [archivo], title: 'Notas del callejero de Granada' })
-      resultado = 'compartido'
-    } catch (error) {
-      if (error.name === 'AbortError') return 'cancelado'
-      descargar(archivo)
-    }
-  } else {
-    descargar(archivo)
-  }
+  const resultado = await compartirArchivo(archivoDeNotas(propias), 'Notas del callejero de Granada')
+  if (resultado === 'cancelado') return resultado
   const ids = new Set(propias.map((n) => n.id))
   const ahora = new Date().toISOString()
   guardarNotas(leerNotas().map((n) => (ids.has(n.id) ? { ...n, compartida: ahora } : n)))
@@ -157,6 +152,18 @@ export function datosDeArchivo(texto) {
 
 const textoSeguro = (valor, largo) => (typeof valor === 'string' ? valor.slice(0, largo) : '')
 const referencia = (r) => (r && typeof r.nombre === 'string' ? { id: r.id ?? null, nombre: r.nombre.slice(0, 120) } : null)
+const preguntaSegura = (p) =>
+  p && typeof p.texto === 'string'
+    ? {
+        modo: textoSeguro(p.modo, 40),
+        texto: p.texto.slice(0, 400),
+        respuesta: textoSeguro(p.respuesta, 300),
+        elegida: textoSeguro(p.elegida, 300) || null,
+        opciones: Array.isArray(p.opciones) ? p.opciones.slice(0, 4).map((o) => textoSeguro(o, 300)) : null,
+        id: textoSeguro(p.id, 200),
+        enlace: /^#\/(mapa|ejes)\?(calle|lugar|id)=[\w-]+$/.test(p.enlace ?? '') ? p.enlace : null,
+      }
+    : null
 
 // Añade a este dispositivo las notas de un archivo de otra persona (sin repetir las que ya estén)
 export async function importarNotas(archivo) {
@@ -168,8 +175,11 @@ export async function importarNotas(archivo) {
   let repetidas = 0
   let estropeadas = 0
   for (const n of datos.notas) {
+    // Una nota vale si es sobre un punto del mapa o sobre una pregunta
     const punto = Array.isArray(n?.punto) ? n.punto.map(Number) : []
-    if (punto.length !== 2 || punto.some((x) => !Number.isFinite(x)) || typeof n.tipo !== 'string') {
+    const conPunto = punto.length === 2 && punto.every((x) => Number.isFinite(x))
+    const pregunta = preguntaSegura(n?.pregunta)
+    if ((!conPunto && !pregunta) || typeof n.tipo !== 'string') {
       estropeadas++
       continue
     }
@@ -184,7 +194,8 @@ export async function importarNotas(archivo) {
       fecha: textoSeguro(n.fecha, 30) || new Date().toISOString(),
       tipo: n.tipo.slice(0, 80),
       comentario: textoSeguro(n.comentario, 2000),
-      punto,
+      punto: conPunto ? punto : null,
+      pregunta,
       calle: referencia(n.calle),
       lugar: referencia(n.lugar),
       tramo: Number.isFinite(n.tramo) ? n.tramo : null,

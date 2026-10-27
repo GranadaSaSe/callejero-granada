@@ -5,6 +5,7 @@ import { crear, rellenar } from '../crear.js'
 import { cargar } from '../datos.js'
 import { DISTRITOS, ejesActuales } from '../ejes-lista.js'
 import { aprendida, calificar, cuandoVuelve, intercalar, RESPUESTAS, tarjetasDeHoy } from '../repaso.js'
+import { buscadorDeReferencias, notaAbierta, notaDePregunta } from '../nota-pregunta.js'
 import { crearOpciones, crearTarjetas, MAZOS } from '../tarjetas-datos.js'
 
 const CLAVES = {
@@ -58,6 +59,34 @@ export async function abrir(contenedor) {
   }
   let contador = leer(CLAVES.hoy, { fecha: hoy(), nuevas: 0 })
   const nuevasYaHoy = () => (contador.fecha === hoy() ? contador.nuevas : 0)
+  const referenciaDe = buscadorDeReferencias(calles, lugares)
+
+  // Botón "✎ Nota" de cada pregunta: sugerencias o quejas que van a Inicio → Notas
+  const botonNota = (datos, pausa) =>
+    crear(
+      'button',
+      {
+        class: 'boton-nota',
+        title: 'Dejar una nota sobre esta pregunta',
+        onclick: () => {
+          const { modo, tarjeta, opciones = null, elegida = null } = datos()
+          notaDePregunta(
+            {
+              modo,
+              pregunta: tarjeta.pregunta,
+              respuesta: tarjeta.respuesta,
+              opciones,
+              elegida,
+              id: tarjeta.id,
+              enlace: tarjeta.enlace,
+              ...referenciaDe(tarjeta.enlace),
+            },
+            pausa,
+          )
+        },
+      },
+      '✎ Nota',
+    )
   let enSesion = null // { tecla } mientras hay una sesión de tarjetas o de test abierta
 
   // Las tarjetas se crean al momento con los ejes actuales (se pueden cambiar en la pantalla de Ejes)
@@ -186,6 +215,7 @@ export async function abrir(contenedor) {
         crear(
           'article',
           { class: 'tarjeta-repaso' },
+          botonNota(() => ({ modo: 'Tarjetas de repaso', tarjeta })),
           crear('p', { class: 'etiqueta' }, NOMBRE_MAZO[tarjeta.mazo], estado ? '' : ' · nueva'),
           crear('h2', { class: 'pregunta-tarjeta' }, tarjeta.pregunta),
           destapada && [
@@ -303,15 +333,48 @@ export async function abrir(contenedor) {
     let mejorRacha = 0
     let aciertos = 0
     let respondida = false
+    let elegidaAhora = null
     let inicio = 0
     let temporizador = null
+    let pausadoMs = 0 // tiempo con el reloj parado (escribiendo una nota) en esta pregunta
+    let pausaDesde = null
     const falladas = []
     const segundos = ajustes.segundosTest
+    const usado = () => (Date.now() - inicio - pausadoMs - (pausaDesde ? Date.now() - pausaDesde : 0)) / 1000
+
+    // El reloj se para mientras se escribe una nota y sigue donde iba al cerrarla
+    function pausar() {
+      if (respondida || !segundos || pausaDesde) return
+      clearTimeout(temporizador)
+      pausaDesde = Date.now()
+      const barra = pagina.querySelector('.tiempo-relleno')
+      if (barra) {
+        barra.style.transition = 'none'
+        barra.style.width = `${Math.max(0, 100 * (1 - usado() / segundos))}%`
+      }
+    }
+    function reanudar() {
+      if (!pausaDesde) return
+      pausadoMs += Date.now() - pausaDesde
+      pausaDesde = null
+      if (respondida) return
+      const restante = Math.max(0, segundos - usado())
+      const barra = pagina.querySelector('.tiempo-relleno')
+      if (barra) {
+        void barra.offsetWidth
+        barra.style.transition = `width ${restante}s linear`
+        barra.style.width = '0%'
+      }
+      temporizador = setTimeout(() => contestar(null), restante * 1000)
+    }
 
     function mostrarPregunta() {
       indice++
       if (indice >= preguntas.length) return final()
       respondida = false
+      elegidaAhora = null
+      pausadoMs = 0
+      pausaDesde = null
       const { tarjeta, opciones } = preguntas[indice]
       const barra = crear('div', { class: 'tiempo-relleno' })
       rellenar(
@@ -326,6 +389,10 @@ export async function abrir(contenedor) {
         crear(
           'article',
           { class: 'tarjeta-repaso pregunta-test' },
+          botonNota(
+            () => ({ modo: 'Test Kahoot', tarjeta, opciones, elegida: elegidaAhora === null ? null : opciones[elegidaAhora] }),
+            { alAbrir: pausar, alCerrar: reanudar },
+          ),
           crear('p', { class: 'etiqueta' }, NOMBRE_MAZO[tarjeta.mazo]),
           crear('h2', { class: 'pregunta-tarjeta' }, tarjeta.pregunta),
           crear('div', { class: 'resultado-test', 'aria-live': 'polite' }),
@@ -356,11 +423,12 @@ export async function abrir(contenedor) {
     function contestar(elegida) {
       if (respondida) return
       respondida = true
+      elegidaAhora = elegida
       clearTimeout(temporizador)
       const { tarjeta, opciones } = preguntas[indice]
       const buena = opciones.indexOf(tarjeta.respuesta)
       const acierto = elegida === buena
-      const tardado = Math.min((Date.now() - inicio) / 1000, segundos || Infinity)
+      const tardado = Math.min(usado(), segundos || Infinity)
 
       // Como en Kahoot: hasta 1.000 puntos, menos cuanto más se tarda, y un extra por racha
       let ganados = 0
@@ -464,7 +532,7 @@ export async function abrir(contenedor) {
   }
 
   document.addEventListener('keydown', (e) => {
-    if (!enSesion || contenedor.hidden || e.target.matches('input, select, textarea')) return
+    if (!enSesion || contenedor.hidden || notaAbierta() || e.target.matches('input, select, textarea')) return
     enSesion.tecla(e)
   })
 
