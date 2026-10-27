@@ -13,7 +13,8 @@ App web instalable (PWA) para preparar la prueba de callejero de la oposición d
 ## Estado
 
 - Paso 0 terminado salvo el 0.8: "Hola Granada" publicada en https://granadasase.github.io/callejero-granada/ e instalada y probada en modo avión en Android e iPhone. El material de estudio irá a `material/` (no se sube a GitHub).
-- Siguiente: Fase 1, empezando por el paso 1.1 (descargar los datos de Granada).
+- Fase 1 en curso en la rama `fase1-datos` (se une a `main` cuando la app tenga algo nuevo que enseñar). Paso 1.1 hecho; siguiente: 1.2 (limpiar y unir los datos).
+- Datos del 1.1 (27-10-2026): OSM tiene 8 distritos y 32 barrios (pendiente de confirmar con la lista oficial; Zaidín sale con un solo barrio), 2.549 nombres de calle y 469 giros prohibidos. El CDAU tiene 2.735 vías, 9.401 tramos y 34.585 portales; su campo `circulacion` usa códigos (311, 322, 330, 331, 332, 333) cuyo significado hay que confirmar en la documentación del CDAU. El 72 % de los nombres oficiales coincide tal cual con OSM. En OSM aparecen el Parque de Bomberos Norte y el Sur.
 - Para subir cambios (`git push`) se usa el inicio de sesión guardado por Git Credential Manager; si pide credenciales, lanzar el push en el panel de Terminal para que se abra el navegador.
 
 ## Datos del examen que usa la app
