@@ -13,66 +13,22 @@
     <script type="module" src="/src/main.js"></script>
   </head>
   <body>
-    <main class="pagina">
-      <header class="cabecera">
-        <img class="logo" src="/icon.svg" alt="" width="56" height="56" />
-        <div>
-          <p class="etiqueta">Paso 0 · versión 0.1</p>
-          <h1>Hola, Granada</h1>
-        </div>
-      </header>
+    <div class="app">
+      <main class="vistas">
+        <section id="vista-inicio" class="vista" hidden></section>
+        <section id="vista-mapa" class="vista vista-mapa" hidden></section>
+      </main>
 
-      <p class="intro">
-        Esta es la primera versión de tu app del callejero. Todavía no tiene funciones de estudio:
-        sirve para comprobar que la app llega bien a tu móvil.
-      </p>
-
-      <section class="tarjeta" aria-labelledby="titulo-comprobaciones">
-        <h2 id="titulo-comprobaciones">Comprobaciones</h2>
-        <ul class="comprobaciones">
-          <li id="check-abre" data-ok="si">
-            <span class="marca" aria-hidden="true"></span>
-            <span class="texto">Se abre en este dispositivo</span>
-            <span class="estado">Sí</span>
-          </li>
-          <li id="check-instalada" data-ok="no">
-            <span class="marca" aria-hidden="true"></span>
-            <span class="texto">Instalada en la pantalla de inicio</span>
-            <span class="estado">Todavía no</span>
-          </li>
-          <li id="check-offline" data-ok="no">
-            <span class="marca" aria-hidden="true"></span>
-            <span class="texto">Lista para usarse sin internet</span>
-            <span class="estado">Preparando…</span>
-          </li>
-        </ul>
-        <p class="conexion">Ahora mismo: <strong id="conexion">—</strong></p>
-      </section>
-
-      <section class="tarjeta" id="como-instalar" aria-labelledby="titulo-instalar">
-        <h2 id="titulo-instalar">Cómo instalarla</h2>
-        <h3>Android (Chrome)</h3>
-        <ol>
-          <li>Pulsa el menú <strong>⋮</strong>, arriba a la derecha.</li>
-          <li>Elige <strong>Instalar aplicación</strong> o <strong>Añadir a pantalla de inicio</strong>.</li>
-        </ol>
-        <h3>iPhone (Safari)</h3>
-        <ol>
-          <li>Pulsa el botón <strong>Compartir</strong> (el cuadrado con una flecha hacia arriba).</li>
-          <li>Elige <strong>Añadir a pantalla de inicio</strong>.</li>
-        </ol>
-        <p class="nota">Después ábrela desde el icono rojo de tu pantalla de inicio, no desde el navegador.</p>
-      </section>
-
-      <section class="tarjeta" aria-labelledby="titulo-sin-internet">
-        <h2 id="titulo-sin-internet">Prueba sin internet</h2>
-        <p>
-          Cuando la tercera comprobación diga <strong>Lista</strong>, activa el modo avión y vuelve a abrir la app.
-          Si se ve esta misma pantalla, todo funciona.
-        </p>
-      </section>
-
-      <footer class="pie">Siguiente paso: Fase 1, datos de las calles de Granada.</footer>
-    </main>
+      <nav class="pestanas" aria-label="Secciones">
+        <a href="#/inicio" data-ruta="inicio">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.5 12 5l8 6.5V20h-5.5v-5h-5v5H4z" /></svg>
+          Inicio
+        </a>
+        <a href="#/mapa" data-ruta="mapa">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6.5 9 4l6 2.5L21 4v13.5L15 20l-6-2.5L3 20zM9 4v13.5M15 6.5V20" /></svg>
+          Mapa
+        </a>
+      </nav>
+    </div>
   </body>
 </html>

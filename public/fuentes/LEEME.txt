@@ -1,0 +1,5 @@
+Letras para escribir nombres sobre el mapa sin conexión (formato de glifos de MapLibre).
+
+Noto Sans Regular y Noto Sans Bold, de Google, con licencia SIL Open Font License 1.1.
+Glifos descargados de https://demotiles.maplibre.org/font/ (proyecto MapLibre).
+Rangos: 0-255 (español completo), 256-511 y 8192-8447 (signos de puntuación).

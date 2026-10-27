@@ -1,39 +1,31 @@
 import './style.css'
 import { registerSW } from 'virtual:pwa-register'
 
-function marcar(id, ok, texto) {
-  const fila = document.getElementById(id)
-  fila.dataset.ok = ok ? 'si' : 'no'
-  fila.querySelector('.estado').textContent = texto
+// El "service worker" guarda la app y los datos en el dispositivo para que funcione sin internet
+if ('serviceWorker' in navigator) registerSW({ immediate: true })
+
+// Cada sección se carga la primera vez que se abre; después solo se muestra u oculta
+const VISTAS = {
+  inicio: { elemento: 'vista-inicio', cargar: () => import('./vistas/inicio.js') },
+  mapa: { elemento: 'vista-mapa', cargar: () => import('./vistas/mapa.js') },
+}
+const abiertas = new Map()
+
+async function navegar() {
+  const pedida = location.hash.replace(/^#\/?/, '').split('?')[0]
+  const ruta = VISTAS[pedida] ? pedida : 'inicio'
+  for (const [nombre, vista] of Object.entries(VISTAS)) {
+    document.getElementById(vista.elemento).hidden = nombre !== ruta
+  }
+  for (const enlace of document.querySelectorAll('.pestanas a')) {
+    enlace.toggleAttribute('aria-current', enlace.dataset.ruta === ruta)
+  }
+  if (!abiertas.has(ruta)) {
+    const modulo = await VISTAS[ruta].cargar()
+    abiertas.set(ruta, await modulo.abrir(document.getElementById(VISTAS[ruta].elemento)))
+  }
+  abiertas.get(ruta)?.mostrar?.()
 }
 
-// ¿Se ha abierto desde el icono de la pantalla de inicio?
-const instalada =
-  window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true
-marcar('check-instalada', instalada, instalada ? 'Sí' : 'Todavía no')
-document.getElementById('como-instalar').hidden = instalada
-
-function mostrarConexion() {
-  document.getElementById('conexion').textContent = navigator.onLine ? 'con internet' : 'sin internet'
-}
-mostrarConexion()
-window.addEventListener('online', mostrarConexion)
-window.addEventListener('offline', mostrarConexion)
-
-// El "service worker" guarda la app en el dispositivo para que funcione sin conexión
-function marcarSinInternetLista() {
-  marcar('check-offline', true, 'Lista')
-}
-
-if (!('serviceWorker' in navigator)) {
-  marcar('check-offline', false, 'No disponible')
-} else {
-  if (navigator.serviceWorker.controller) marcarSinInternetLista()
-  registerSW({
-    immediate: true,
-    onOfflineReady: marcarSinInternetLista,
-    onRegisteredSW(_url, registro) {
-      if (registro?.active) marcarSinInternetLista()
-    },
-  })
-}
+window.addEventListener('hashchange', navegar)
+navegar()

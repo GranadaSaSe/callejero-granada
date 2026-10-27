@@ -1,3 +1,1039 @@
 {
- "tramos": {}
+ "tramos": {
+  "292000130": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:11:13.798Z"
+  },
+  "292000173": {
+   "sentido": "doble",
+   "eleccion": "otra",
+   "fecha": "2026-10-27T19:28:07.797Z"
+  },
+  "292000207": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:28:10.204Z"
+  },
+  "292000255": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:35:54.585Z"
+  },
+  "292000331": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:28:11.916Z"
+  },
+  "292000341": {
+   "sentido": "inverso",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:20:44.539Z"
+  },
+  "292000350": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:14:34.919Z"
+  },
+  "292000423": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:40:34.662Z"
+  },
+  "292000432": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:40:35.939Z"
+  },
+  "292000471": {
+   "sentido": "doble",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:34:11.172Z"
+  },
+  "292000551": {
+   "sentido": "doble",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:11:31.428Z"
+  },
+  "292000910": {
+   "sentido": "inverso",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:18:41.612Z"
+  },
+  "292001054": {
+   "sentido": "doble",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:38:41.883Z"
+  },
+  "292001128": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:18:46.844Z"
+  },
+  "292001140": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:40:36.969Z"
+  },
+  "292001142": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:40:37.578Z"
+  },
+  "292001159": {
+   "sentido": "doble",
+   "eleccion": "otra",
+   "fecha": "2026-10-27T19:40:45.538Z"
+  },
+  "292001161": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:18:47.896Z"
+  },
+  "292001231": {
+   "sentido": "doble",
+   "eleccion": "otra",
+   "fecha": "2026-10-27T19:40:49.942Z"
+  },
+  "292001259": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:12:08.284Z"
+  },
+  "292001265": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:18:49.766Z"
+  },
+  "292001319": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:18:51.288Z"
+  },
+  "292001380": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:18:52.601Z"
+  },
+  "292001388": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:18:55.550Z"
+  },
+  "292001451": {
+   "sentido": "doble",
+   "eleccion": "otra",
+   "fecha": "2026-10-27T19:35:59.615Z"
+  },
+  "292001574": {
+   "sentido": "doble",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:05:44.198Z"
+  },
+  "292001578": {
+   "sentido": "doble",
+   "eleccion": "otra",
+   "fecha": "2026-10-27T19:36:04.808Z"
+  },
+  "292001602": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:19:07.855Z"
+  },
+  "292001610": {
+   "sentido": "inverso",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:06:03.864Z"
+  },
+  "292001611": {
+   "sentido": "doble",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:06:06.953Z"
+  },
+  "292001626": {
+   "sentido": "inverso",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:06:11.639Z"
+  },
+  "292001631": {
+   "sentido": "inverso",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:06:14.236Z"
+  },
+  "292001745": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:06:24.270Z"
+  },
+  "292001825": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:37:15.717Z"
+  },
+  "292001917": {
+   "sentido": "doble",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:25:21.212Z"
+  },
+  "292001996": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:37:17.076Z"
+  },
+  "292002079": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:37:17.961Z"
+  },
+  "292002137": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:37:18.802Z"
+  },
+  "292002193": {
+   "sentido": "doble",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:29:12.988Z"
+  },
+  "292002215": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:28:12.985Z"
+  },
+  "292002228": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:14:36.314Z"
+  },
+  "292002283": {
+   "sentido": "doble",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:14:59.821Z"
+  },
+  "292002342": {
+   "sentido": "doble",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:38:43.262Z"
+  },
+  "292002343": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:41:14.978Z"
+  },
+  "292002373": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:37:20.751Z"
+  },
+  "292002381": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:37:21.431Z"
+  },
+  "292002460": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:37:23.732Z"
+  },
+  "292002464": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:37:25.074Z"
+  },
+  "292002497": {
+   "sentido": "doble",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:29:14.274Z"
+  },
+  "292002611": {
+   "sentido": "peatonal",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:28:53.533Z"
+  },
+  "292002786": {
+   "sentido": "doble",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:07:30.879Z"
+  },
+  "292002855": {
+   "sentido": "doble",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:07:31.958Z"
+  },
+  "292002919": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:35:39.839Z"
+  },
+  "292003001": {
+   "sentido": "inverso",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:08:05.737Z"
+  },
+  "292003401": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:35:42.123Z"
+  },
+  "292003458": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:35:42.973Z"
+  },
+  "292003700": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:27:38.894Z"
+  },
+  "292003939": {
+   "sentido": "peatonal",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:35:48.119Z"
+  },
+  "292003940": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:35:51.791Z"
+  },
+  "292004166": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:30:14.938Z"
+  },
+  "292004167": {
+   "sentido": "inverso",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:08:38.213Z"
+  },
+  "292004501": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:27:39.984Z"
+  },
+  "292004518": {
+   "sentido": "peatonal",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:42:49.513Z"
+  },
+  "292004677": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:43:32.326Z"
+  },
+  "292005099": {
+   "sentido": "doble",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:19:22.011Z"
+  },
+  "292005243": {
+   "sentido": "inverso",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:30:16.656Z"
+  },
+  "292005280": {
+   "sentido": "inverso",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:30:17.254Z"
+  },
+  "292005513": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:25:49.365Z"
+  },
+  "292005552": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:25:50.283Z"
+  },
+  "292005617": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:26:38.483Z"
+  },
+  "292005673": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:26:41.326Z"
+  },
+  "292005681": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:26:41.979Z"
+  },
+  "292005843": {
+   "sentido": "doble",
+   "eleccion": "otra",
+   "fecha": "2026-10-27T19:26:50.750Z"
+  },
+  "292005885": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:15:48.216Z"
+  },
+  "292005918": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:16:38.194Z"
+  },
+  "292005996": {
+   "sentido": "inverso",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:13:57.031Z"
+  },
+  "292005998": {
+   "sentido": "inverso",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:29:35.901Z"
+  },
+  "292006066": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:23:38.243Z"
+  },
+  "292006169": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:16:52.183Z"
+  },
+  "292006226": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:23:47.626Z"
+  },
+  "292006329": {
+   "sentido": "doble",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:17:06.349Z"
+  },
+  "292006385": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:17:10.296Z"
+  },
+  "292006532": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:17:12.396Z"
+  },
+  "292006579": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:17:30.286Z"
+  },
+  "292006650": {
+   "sentido": "peatonal",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:18:13.288Z"
+  },
+  "292006651": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:18:18.837Z"
+  },
+  "292006719": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:18:21.636Z"
+  },
+  "292006748": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:18:23.050Z"
+  },
+  "292007330": {
+   "sentido": "doble",
+   "eleccion": "otra",
+   "fecha": "2026-10-27T19:42:04.443Z"
+  },
+  "292007708": {
+   "sentido": "inverso",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:17:17.907Z"
+  },
+  "292007748": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:42:07.275Z"
+  },
+  "292007756": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:22:35.721Z"
+  },
+  "292007831": {
+   "sentido": "doble",
+   "eleccion": "otra",
+   "fecha": "2026-10-27T19:22:14.570Z"
+  },
+  "292007843": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:22:36.720Z"
+  },
+  "292007864": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:22:38.077Z"
+  },
+  "292007882": {
+   "sentido": "inverso",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:31:11.732Z"
+  },
+  "292007939": {
+   "sentido": "inverso",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:28:55.497Z"
+  },
+  "292007965": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:22:39.328Z"
+  },
+  "292007994": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:22:40.372Z"
+  },
+  "292008060": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:23:08.631Z"
+  },
+  "292008139": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:42:09.175Z"
+  },
+  "292008157": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:35:25.335Z"
+  },
+  "292008164": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:35:26.310Z"
+  },
+  "292008170": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:22:17.630Z"
+  },
+  "292008179": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:35:26.926Z"
+  },
+  "292008184": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:35:27.575Z"
+  },
+  "292008194": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:35:30.355Z"
+  },
+  "292008200": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:35:31.224Z"
+  },
+  "292008225": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:35:32.052Z"
+  },
+  "292008232": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:35:32.478Z"
+  },
+  "292008249": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:35:33.179Z"
+  },
+  "292008256": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:35:33.637Z"
+  },
+  "292009249": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:42:14.556Z"
+  },
+  "292009254": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:42:15.993Z"
+  },
+  "292009255": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:42:16.947Z"
+  },
+  "292009256": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:42:17.380Z"
+  },
+  "292009259": {
+   "sentido": "inverso",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:17:16.364Z"
+  },
+  "292009702": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:06:38.140Z"
+  },
+  "292010140": {
+   "sentido": "inverso",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:34:13.801Z"
+  },
+  "292010144": {
+   "sentido": "inverso",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:34:21.820Z"
+  },
+  "292010146": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:34:50.058Z"
+  },
+  "292010157": {
+   "sentido": "doble",
+   "eleccion": "otra",
+   "fecha": "2026-10-27T19:35:07.971Z"
+  },
+  "292010158": {
+   "sentido": "doble",
+   "eleccion": "otra",
+   "fecha": "2026-10-27T19:35:10.618Z"
+  },
+  "292010159": {
+   "sentido": "doble",
+   "eleccion": "otra",
+   "fecha": "2026-10-27T19:35:12.067Z"
+  },
+  "292010160": {
+   "sentido": "doble",
+   "eleccion": "otra",
+   "fecha": "2026-10-27T19:35:13.240Z"
+  },
+  "292010161": {
+   "sentido": "doble",
+   "eleccion": "otra",
+   "fecha": "2026-10-27T19:35:14.913Z"
+  },
+  "292010162": {
+   "sentido": "doble",
+   "eleccion": "otra",
+   "fecha": "2026-10-27T19:35:16.886Z"
+  },
+  "292010163": {
+   "sentido": "doble",
+   "eleccion": "otra",
+   "fecha": "2026-10-27T19:35:18.620Z"
+  },
+  "292010164": {
+   "sentido": "doble",
+   "eleccion": "otra",
+   "fecha": "2026-10-27T19:35:20.357Z"
+  },
+  "292010165": {
+   "sentido": "doble",
+   "eleccion": "otra",
+   "fecha": "2026-10-27T19:35:21.576Z"
+  },
+  "292010526": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:33:03.246Z"
+  },
+  "292010527": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:33:04.175Z"
+  },
+  "292010528": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:33:05.078Z"
+  },
+  "292010529": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:33:05.739Z"
+  },
+  "292010530": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:33:06.621Z"
+  },
+  "292010533": {
+   "sentido": "doble",
+   "eleccion": "otra",
+   "fecha": "2026-10-27T19:33:16.133Z"
+  },
+  "292010542": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:33:21.122Z"
+  },
+  "292010543": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:33:22.534Z"
+  },
+  "292010676": {
+   "sentido": "doble",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:39:55.432Z"
+  },
+  "292010681": {
+   "sentido": "doble",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:40:01.454Z"
+  },
+  "292010682": {
+   "sentido": "doble",
+   "eleccion": "otra",
+   "fecha": "2026-10-27T19:40:31.721Z"
+  },
+  "292011158": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:22:23.194Z"
+  },
+  "292011160": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:22:28.475Z"
+  },
+  "292011166": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:22:31.645Z"
+  },
+  "292011168": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:22:33.366Z"
+  },
+  "292011317": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:31:45.224Z"
+  },
+  "292011321": {
+   "sentido": "directo",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:31:55.244Z"
+  },
+  "292011335": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:31:57.436Z"
+  },
+  "292011336": {
+   "sentido": "peatonal",
+   "eleccion": "otra",
+   "fecha": "2026-10-27T19:32:59.124Z"
+  },
+  "292011337": {
+   "sentido": "inverso",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:33:01.833Z"
+  },
+  "292011338": {
+   "sentido": "inverso",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:21:19.324Z"
+  },
+  "292011340": {
+   "sentido": "inverso",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:21:20.084Z"
+  },
+  "292011341": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:21:23.259Z"
+  },
+  "292011349": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:21:56.076Z"
+  },
+  "292011350": {
+   "sentido": "inverso",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:21:58.868Z"
+  },
+  "292011351": {
+   "sentido": "inverso",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:21:59.986Z"
+  },
+  "292011352": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:22:01.755Z"
+  },
+  "292011353": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:22:02.432Z"
+  },
+  "292011354": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:22:03.132Z"
+  },
+  "292011355": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:22:03.679Z"
+  },
+  "292011356": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:22:04.307Z"
+  },
+  "292011431": {
+   "sentido": "doble",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:25:01.904Z"
+  },
+  "292011478": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:19:42.748Z"
+  },
+  "292011483": {
+   "sentido": "doble",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:20:32.195Z"
+  },
+  "292011487": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:20:35.445Z"
+  },
+  "292011490": {
+   "sentido": "inverso",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:20:37.457Z"
+  },
+  "292011491": {
+   "sentido": "doble",
+   "eleccion": "otra",
+   "fecha": "2026-10-27T19:43:37.464Z"
+  },
+  "292011492": {
+   "sentido": "doble",
+   "eleccion": "otra",
+   "fecha": "2026-10-27T19:43:38.961Z"
+  },
+  "292011493": {
+   "sentido": "doble",
+   "eleccion": "otra",
+   "fecha": "2026-10-27T19:43:40.449Z"
+  },
+  "292011501": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:43:42.048Z"
+  },
+  "292011636": {
+   "sentido": "doble",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:42:33.949Z"
+  },
+  "292011637": {
+   "sentido": "inverso",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:42:40.279Z"
+  },
+  "292011729": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:12:14.998Z"
+  },
+  "292011735": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:12:16.626Z"
+  },
+  "292011740": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:12:41.899Z"
+  },
+  "292011742": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:12:44.372Z"
+  },
+  "292011743": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:12:45.512Z"
+  },
+  "292011744": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:12:46.766Z"
+  },
+  "292011745": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:12:47.622Z"
+  },
+  "292011746": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:12:48.479Z"
+  },
+  "292011747": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:12:49.533Z"
+  },
+  "292011751": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:12:50.980Z"
+  },
+  "292011752": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:12:51.491Z"
+  },
+  "292011753": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:12:52.021Z"
+  },
+  "292011754": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:12:52.592Z"
+  },
+  "292011755": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:12:53.975Z"
+  },
+  "292011756": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:12:54.431Z"
+  },
+  "292012004": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:26:55.336Z"
+  },
+  "292012504": {
+   "sentido": "inverso",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:21:14.081Z"
+  },
+  "292012505": {
+   "sentido": "inverso",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:21:15.381Z"
+  },
+  "292012510": {
+   "sentido": "inverso",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:21:16.746Z"
+  },
+  "292012523": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:21:17.898Z"
+  },
+  "292012550": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-27T19:36:09.735Z"
+  },
+  "292012551": {
+   "sentido": "inverso",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:36:59.619Z"
+  },
+  "292012552": {
+   "sentido": "inverso",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:37:00.499Z"
+  },
+  "292012553": {
+   "sentido": "inverso",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:37:02.011Z"
+  },
+  "292012554": {
+   "sentido": "inverso",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:37:02.700Z"
+  },
+  "292012555": {
+   "sentido": "inverso",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:37:03.424Z"
+  },
+  "292012556": {
+   "sentido": "inverso",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:37:04.213Z"
+  },
+  "292012560": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:37:06.423Z"
+  },
+  "292012561": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:37:06.991Z"
+  },
+  "292012563": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:37:07.617Z"
+  },
+  "292012564": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:37:08.195Z"
+  },
+  "292012565": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:37:09.029Z"
+  },
+  "292012609": {
+   "sentido": "inverso",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:22:19.077Z"
+  },
+  "292012662": {
+   "sentido": "inverso",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:21:00.657Z"
+  },
+  "292012663": {
+   "sentido": "inverso",
+   "eleccion": "osm",
+   "fecha": "2026-10-27T19:21:05.033Z"
+  }
+ }
 }

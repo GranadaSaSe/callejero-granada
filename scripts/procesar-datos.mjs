@@ -19,6 +19,7 @@ import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { categoria } from './lib/categorias.mjs'
 import {
+  centroDeAnillos,
   centroDeRelacion,
   cosenoEntre,
   crearIndice,
@@ -91,6 +92,12 @@ const poligono = (zona, tolerancia) => ({
   type: 'MultiPolygon',
   coordinates: zona.exteriores.map((anillo) => [redondear(simplificar(anillo, tolerancia))]),
 })
+// Punto donde escribir el nombre de la zona: su centro, o un punto de su borde si el centro cae fuera
+const etiqueta = (zona) => {
+  const centro = centroDeAnillos(zona.exteriores)
+  const punto = centro && zona.contiene(centro) ? centro : zona.exteriores[0][0]
+  return { type: 'Point', coordinates: redondear([punto])[0] }
+}
 await guardar(
   'zonas.json',
   coleccion([
@@ -100,6 +107,8 @@ await guardar(
       properties: { nivel: 'barrio', nombre: b.nombre, distrito: b.distrito },
       geometry: poligono(b, 3),
     })),
+    ...distritos.map((d) => ({ type: 'Feature', properties: { nivel: 'etiqueta-distrito', nombre: d.nombre }, geometry: etiqueta(d) })),
+    ...barrios.map((b) => ({ type: 'Feature', properties: { nivel: 'etiqueta-barrio', nombre: b.nombre }, geometry: etiqueta(b) })),
   ]),
 )
 
@@ -250,12 +259,33 @@ for (const t of tramos) {
   for (let i = 1; i < t.linea.length; i++) indiceCalles.anadir(t.linea[i - 1], t.linea[i], vias.get(t.via))
 }
 
-// Calles que se juntan en un nodo. Si el extremo no comparte punto con ninguna (pasa a veces cuando la
-// otra calle no está cortada ahí), se buscan las que pasan a menos de 8 metros.
+// Calles que se juntan en un nodo. Si en el nodo solo hay vías sin nombre (una glorieta, por ejemplo),
+// se recorren hasta 80 m para ver a qué calles llevan. Si el extremo no comparte punto con ninguna (pasa a
+// veces cuando la otra calle no está cortada ahí), se buscan las que pasan a menos de 8 metros.
 function callesEnNodo(k, via) {
   const deOtra = (otra) => otra && otra.id !== via.id && !otra.sinNombre && otra.nombre !== via.nombre
   const juntas = unicos(tramosEnNodo.get(k).map((t) => vias.get(t.via)).filter(deOtra).map((v) => v.nombre))
   if (juntas.length) return juntas
+
+  const sinNombre = (t) => !vias.get(t.via) || vias.get(t.via).sinNombre
+  const distancias = new Map([[k, 0]])
+  const porVisitar = [k]
+  const alcanzadas = []
+  while (porVisitar.length) {
+    const nodo = porVisitar.shift()
+    for (const t of tramosEnNodo.get(nodo) ?? []) {
+      const otra = vias.get(t.via)
+      if (deOtra(otra)) alcanzadas.push({ d: distancias.get(nodo), nombre: otra.nombre })
+      if (!sinNombre(t)) continue
+      const otroExtremo = clave(t.linea[0]) === nodo ? clave(t.linea.at(-1)) : clave(t.linea[0])
+      const d = distancias.get(nodo) + t.longitud
+      if (d <= 80 && (!distancias.has(otroExtremo) || d < distancias.get(otroExtremo))) {
+        distancias.set(otroExtremo, d)
+        porVisitar.push(otroExtremo)
+      }
+    }
+  }
+  if (alcanzadas.length) return unicos(alcanzadas.sort((a, b) => a.d - b.d).map((a) => a.nombre))
   const punto = k.split(',').map(Number)
   return unicos(
     indiceCalles
@@ -496,6 +526,19 @@ for (const via of vias.values()) {
 calles.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
 await guardar('calles.json', calles)
 
+// Importancia de cada tramo según el tipo de vía en OpenStreetMap (1 = vía principal ... 6 = peatonal o
+// sin clasificar). Si un tramo no tiene pareja en OSM, toma la de su calle.
+const IMPORTANCIA = {
+  trunk: 1, primary: 1, primary_link: 1, secondary: 2, secondary_link: 2, tertiary: 3, tertiary_link: 3,
+  unclassified: 4, residential: 4, living_street: 5, service: 5, road: 5,
+}
+const importanciaDeVia = new Map()
+for (const via of vias.values()) {
+  importanciaDeVia.set(via.id, Math.min(6, ...via.tramos.map((t) => IMPORTANCIA[t.clase] ?? 6)))
+}
+const importanciaDeTramo = (t) => IMPORTANCIA[t.clase] ?? (t.clase ? 6 : importanciaDeVia.get(t.via) ?? 6)
+const longitudDeVia = (via) => via.tramos.reduce((s, t) => s + t.longitud, 0)
+
 await guardar(
   'tramos.json',
   coleccion(
@@ -508,6 +551,8 @@ await guardar(
         properties: {
           id: t.id,
           via: t.via,
+          nombre: nombreVia(t.via),
+          importancia: importanciaDeTramo(t),
           sentido: unico ? 'unico' : t.sentido,
           fuente: t.revisado ? 'revision' : t.cdau ? 'cdau' : t.osm ? 'osm' : null,
           ...(t.dudoso && { dudoso: true }),
@@ -520,15 +565,6 @@ await guardar(
 
 // Tramos dudosos para el mapa de revisión, de las calles principales a las secundarias.
 // "directo" e "inverso" se refieren al sentido en que está dibujada la línea (del primer punto al último).
-const IMPORTANCIA = {
-  trunk: 1, primary: 1, primary_link: 1, secondary: 2, secondary_link: 2, tertiary: 3, tertiary_link: 3,
-  unclassified: 4, residential: 4, living_street: 5, service: 5, road: 5,
-}
-const importanciaDeVia = new Map()
-for (const via of vias.values()) {
-  importanciaDeVia.set(via.id, Math.min(6, ...via.tramos.map((t) => IMPORTANCIA[t.clase] ?? 6)))
-}
-const longitudDeVia = (via) => via.tramos.reduce((s, t) => s + t.longitud, 0)
 const dudosos = tramos
   .filter((t) => t.dudoso)
   .map((t) => {

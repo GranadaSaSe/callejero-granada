@@ -22,22 +22,22 @@ Generado el 2026-10-27 con los datos descargados el 2026-10-27. Se vuelve a crea
 - 2495 calles con nombre oficial (CDAU); 231 vías sin nombre aparte.
 - 9401 tramos; 0 sin calle asignada.
 - Sentido de circulación según: callejero oficial (CDAU) 6739, OpenStreetMap 2535, sin dato 127.
-- 0 tramos ya revisados a mano en el mapa de revisión.
-- **1438 tramos dudosos**: el CDAU y OpenStreetMap dicen cosas distintas. Hay que revisarlos (paso 1.3).
+- 207 tramos ya revisados a mano en el mapa de revisión.
+- **1231 tramos dudosos**: el CDAU y OpenStreetMap dicen cosas distintas. Hay que revisarlos (paso 1.3).
 
 | CDAU dice | OpenStreetMap dice | Tramos dudosos |
 | --- | --- | --- |
-| doble sentido | sentido único | 424 |
-| doble sentido | peatonal | 351 |
-| sentido único | sentido único, pero al revés | 184 |
-| sentido único | doble sentido | 166 |
-| peatonal | doble sentido | 150 |
-| sentido único | peatonal | 106 |
-| peatonal | sentido único | 57 |
+| doble sentido | peatonal | 348 |
+| doble sentido | sentido único | 320 |
+| peatonal | doble sentido | 148 |
+| sentido único | doble sentido | 148 |
+| sentido único | sentido único, pero al revés | 109 |
+| sentido único | peatonal | 105 |
+| peatonal | sentido único | 53 |
 
-- Sentido de las calles: doble 833, mixto 591, peatonal 548, hacia el inicio 255, hacia el final 252, desconocido 16.
+- Sentido de las calles: doble 833, mixto 587, peatonal 548, hacia el inicio 259, hacia el final 252, desconocido 16.
 - 133 calles están en varios trozos separados (se estudia el más largo).
-- 322 calles no tienen otra calle en alguno de sus extremos (sin salida, o terminan en un camino sin nombre).
+- 285 calles no tienen otra calle en alguno de sus extremos (sin salida, o terminan en un camino sin nombre).
 
 Códigos de circulación del CDAU, deducidos comparando cada tramo con OpenStreetMap:
 

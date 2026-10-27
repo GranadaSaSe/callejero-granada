@@ -138,8 +138,10 @@ export function cosenoEntre([a1, b1], [a2, b2]) {
 }
 
 // Centro de gravedad del anillo exterior más grande de una relación.
-export function centroDeRelacion(relacion) {
-  const anillos = anillosDeRelacion(relacion, 'outer')
+export const centroDeRelacion = (relacion) => centroDeAnillos(anillosDeRelacion(relacion, 'outer'))
+
+// Centro de gravedad del anillo más grande de una lista.
+export function centroDeAnillos(anillos) {
   let mejor = null
   for (const anillo of anillos) {
     let area = 0
