@@ -4,15 +4,17 @@ import { registerSW } from 'virtual:pwa-register'
 // El "service worker" guarda la app y los datos en el dispositivo para que funcione sin internet
 if ('serviceWorker' in navigator) registerSW({ immediate: true })
 
-// Cada sección se carga la primera vez que se abre; después solo se muestra u oculta
+// Cada sección se carga la primera vez que se abre; después solo se muestra u oculta.
+// La dirección puede llevar datos para la sección: #/mapa?calle=123 abre el mapa en esa calle.
 const VISTAS = {
   inicio: { elemento: 'vista-inicio', cargar: () => import('./vistas/inicio.js') },
   mapa: { elemento: 'vista-mapa', cargar: () => import('./vistas/mapa.js') },
+  ejes: { elemento: 'vista-ejes', cargar: () => import('./vistas/ejes.js') },
 }
 const abiertas = new Map()
 
 async function navegar() {
-  const pedida = location.hash.replace(/^#\/?/, '').split('?')[0]
+  const [pedida, consulta = ''] = location.hash.replace(/^#\/?/, '').split('?')
   const ruta = VISTAS[pedida] ? pedida : 'inicio'
   for (const [nombre, vista] of Object.entries(VISTAS)) {
     document.getElementById(vista.elemento).hidden = nombre !== ruta
@@ -24,7 +26,7 @@ async function navegar() {
     const modulo = await VISTAS[ruta].cargar()
     abiertas.set(ruta, await modulo.abrir(document.getElementById(VISTAS[ruta].elemento)))
   }
-  abiertas.get(ruta)?.mostrar?.()
+  abiertas.get(ruta)?.mostrar?.(new URLSearchParams(consulta))
 }
 
 window.addEventListener('hashchange', navegar)

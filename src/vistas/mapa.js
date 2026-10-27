@@ -593,10 +593,23 @@ export async function abrir(contenedor) {
     botonCapas.setAttribute('aria-expanded', String(!panelCapas.hidden))
   })
 
-  mapa.on('load', () => {
-    aplicarAjustes()
-    aviso.remove()
-  })
+  const cargado = new Promise((listo) =>
+    mapa.on('load', () => {
+      aplicarAjustes()
+      aviso.remove()
+      listo()
+    }),
+  )
 
-  return { mostrar: () => mapa.resize() }
+  return {
+    // #/mapa?calle=123 abre la ficha de esa calle; #/mapa?lugar=n456, la de ese lugar
+    async mostrar(parametros) {
+      mapa.resize()
+      await cargado
+      const calle = callePorId.get(Number(parametros?.get('calle')))
+      const lugar = lugarPorId.get(parametros?.get('lugar'))
+      if (calle) elegirCalle(calle, true)
+      else if (lugar) elegirLugar(lugar, true)
+    },
+  }
 }

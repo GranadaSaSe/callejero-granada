@@ -14,6 +14,11 @@ export function crear(etiqueta, atributos = {}, ...hijos) {
   return elemento
 }
 
+// Sustituye el contenido de un elemento; acepta listas dentro de listas, como crear()
+export function rellenar(elemento, ...hijos) {
+  elemento.replaceChildren(...hijos.flat(Infinity).filter((hijo) => hijo !== false && hijo != null))
+}
+
 // Quita tildes y mayúsculas para comparar textos: "Albaicín" y "albaicin" se consideran iguales
 export const normalizar = (texto) =>
   texto

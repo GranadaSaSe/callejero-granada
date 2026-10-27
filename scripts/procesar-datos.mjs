@@ -116,7 +116,9 @@ await guardar(
 const vias = new Map()
 for (const f of viales.features) {
   const p = f.properties
-  const nombre = p.nom_normalizado ?? `${p.nom_tip_via} ${p.nom_via}`
+  let nombre = p.nom_normalizado ?? `${p.nom_tip_via} ${p.nom_via}`
+  // Alguna vía viene con las letras rotas por un error de codificación ("AndalucÃ­a" → "Andalucía")
+  if (/[ÃÂ]/.test(nombre)) nombre = Buffer.from(nombre, 'latin1').toString('utf8')
   const palabrasTipo = normalizar(p.nom_tip_via ?? '').split(' ')
   const tipo = normalizar(nombre).startsWith(palabrasTipo.join(' '))
     ? nombre.split(' ').slice(0, palabrasTipo.length).join(' ')
@@ -228,7 +230,8 @@ for (const via of vias.values()) {
   const claves = new Set(clavesNombre(via.nombre))
   const votos = new Map()
   for (const t of via.tramos) {
-    if (t.nombreOsm && clavesNombre(t.nombreOsm).some((k) => claves.has(k))) {
+    // Se descartan nombres con letras rotas por un error de codificación ("AndalucÃ­a")
+    if (t.nombreOsm && !/[ÃÂ]/.test(t.nombreOsm) && clavesNombre(t.nombreOsm).some((k) => claves.has(k))) {
       votos.set(t.nombreOsm, (votos.get(t.nombreOsm) ?? 0) + t.longitud)
     }
   }
@@ -437,17 +440,43 @@ function recorrido(via) {
   const ultimo = nodos.at(-1)
   const inicio = callesEnNodo(primero, via)
   const fin = primero === ultimo ? [] : callesEnNodo(ultimo, via)
-  const cruces = unicos(
-    ordenados.filter(([k]) => k !== primero && k !== ultimo).flatMap(([k]) => callesEnNodo(k, via)),
-  ).filter((n) => !inicio.includes(n) && !fin.includes(n))
 
-  // Sentido de la calle, mirando de su inicio a su fin. Se mira a trozos de 25 m: si en un trozo se
-  // circula en los dos sentidos (calzadas separadas, cada una de sentido único), ese trozo es de doble sentido.
   const segmentosCamino = []
   for (let i = 1, s = 0; i < linea.length; i++) {
     segmentosCamino.push({ a: linea[i - 1], b: linea[i], s })
     s += distancia(linea[i - 1], linea[i])
   }
+  const segmentoMasCercano = (punto) =>
+    segmentosCamino.reduce((x, y) => (distanciaASegmento(punto, y.a, y.b) < distanciaASegmento(punto, x.a, x.b) ? y : x))
+
+  // Lado por el que sale cada calle que cruza, yendo del inicio al fin: "i" izquierda, "d" derecha,
+  // "a" a los dos lados (la atraviesa), "" si no se puede saber
+  function ladoEnNodo(k, nombre) {
+    const punto = puntoDe(k)
+    const { a, b } = segmentoMasCercano(punto)
+    const lados = new Set()
+    for (const t of tramosEnNodo.get(k)) {
+      if (vias.get(t.via)?.nombre !== nombre || t.via === via.id) continue
+      const vecino = clave(t.linea[0]) === k ? t.linea[1] : t.linea.at(-2)
+      const giro = (b[0] - a[0]) * (vecino[1] - a[1]) - (b[1] - a[1]) * (vecino[0] - a[0])
+      if (Math.abs(giro) > 1e-12) lados.add(giro > 0 ? 'i' : 'd')
+    }
+    return lados.size === 2 ? 'a' : ([...lados][0] ?? '')
+  }
+  const crucesConLado = []
+  for (const [k] of ordenados) {
+    if (k === primero || k === ultimo) continue
+    for (const nombre of callesEnNodo(k, via)) {
+      if (inicio.includes(nombre) || fin.includes(nombre)) continue
+      const yaEsta = crucesConLado.find((c) => c.nombre === nombre)
+      const lado = ladoEnNodo(k, nombre)
+      if (!yaEsta) crucesConLado.push({ nombre, lado })
+      else if (lado && yaEsta.lado !== lado) yaEsta.lado = yaEsta.lado ? 'a' : lado
+    }
+  }
+
+  // Sentido de la calle, mirando de su inicio a su fin. Se mira a trozos de 25 m: si en un trozo se
+  // circula en los dos sentidos (calzadas separadas, cada una de sentido único), ese trozo es de doble sentido.
   const TROZO = 25
   const trozos = Array.from({ length: Math.max(1, Math.ceil(total / TROZO)) }, () => new Set())
   for (const t of via.tramos) {
@@ -489,7 +518,34 @@ function recorrido(via) {
   const [masComun, veces] = contarValores(conDato)[0] ?? ['desconocido', 0]
   const sentido = conDato.length && veces >= 0.85 * conDato.length ? masComun : 'mixto'
 
-  return { partes: partes.length, inicio, fin, cruces, sentido, longitudPrincipal: total }
+  return {
+    partes: partes.length,
+    inicio,
+    fin,
+    cruces: crucesConLado.map((c) => c.nombre),
+    lados: crucesConLado.map((c) => c.lado),
+    sentido,
+    longitudPrincipal: total,
+  }
+}
+
+// Importancia de cada tramo según el tipo de vía en OpenStreetMap (1 = vía principal ... 6 = peatonal o
+// sin clasificar). Si un tramo no tiene pareja en OSM, toma la de su calle.
+const IMPORTANCIA = {
+  trunk: 1, primary: 1, primary_link: 1, secondary: 2, secondary_link: 2, tertiary: 3, tertiary_link: 3,
+  unclassified: 4, residential: 4, living_street: 5, service: 5, road: 5,
+}
+const importanciaDeVia = new Map()
+for (const via of vias.values()) {
+  importanciaDeVia.set(via.id, Math.min(6, ...via.tramos.map((t) => IMPORTANCIA[t.clase] ?? 6)))
+}
+const importanciaDeTramo = (t) => IMPORTANCIA[t.clase] ?? (t.clase ? 6 : importanciaDeVia.get(t.via) ?? 6)
+const longitudDeVia = (via) => via.tramos.reduce((s, t) => s + t.longitud, 0)
+// Importancia de una calle: la de la mayor parte de su longitud
+function importanciaDeCalle(via) {
+  const metros = new Map()
+  for (const t of via.tramos) metros.set(importanciaDeTramo(t), (metros.get(importanciaDeTramo(t)) ?? 0) + t.longitud)
+  return [...metros].reduce((a, b) => (b[1] > a[1] ? b : a))[0]
 }
 
 const calles = []
@@ -510,12 +566,14 @@ for (const via of vias.values()) {
     nombre: via.nombre,
     ...(via.nombreOficial !== via.nombre && { nombreOficial: via.nombreOficial }),
     tipo: via.tipo,
+    importancia: importanciaDeCalle(via),
     distritos: ordenar(porDistrito),
     barrios: ordenar(porBarrio),
-    longitud: Math.round(via.tramos.reduce((s, t) => s + t.longitud, 0)),
+    longitud: Math.round(longitudDeVia(via)),
     inicio: r.inicio,
     fin: r.fin,
     cruces: r.cruces,
+    lados: r.lados,
     sentido: r.sentido,
     numeros: numeros.length ? [Math.min(...numeros), Math.max(...numeros)] : null,
     codigosPostales: unicos(via.portales.map((p) => p.cp).filter(Boolean)).sort(),
@@ -525,19 +583,6 @@ for (const via of vias.values()) {
 }
 calles.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
 await guardar('calles.json', calles)
-
-// Importancia de cada tramo según el tipo de vía en OpenStreetMap (1 = vía principal ... 6 = peatonal o
-// sin clasificar). Si un tramo no tiene pareja en OSM, toma la de su calle.
-const IMPORTANCIA = {
-  trunk: 1, primary: 1, primary_link: 1, secondary: 2, secondary_link: 2, tertiary: 3, tertiary_link: 3,
-  unclassified: 4, residential: 4, living_street: 5, service: 5, road: 5,
-}
-const importanciaDeVia = new Map()
-for (const via of vias.values()) {
-  importanciaDeVia.set(via.id, Math.min(6, ...via.tramos.map((t) => IMPORTANCIA[t.clase] ?? 6)))
-}
-const importanciaDeTramo = (t) => IMPORTANCIA[t.clase] ?? (t.clase ? 6 : importanciaDeVia.get(t.via) ?? 6)
-const longitudDeVia = (via) => via.tramos.reduce((s, t) => s + t.longitud, 0)
 
 await guardar(
   'tramos.json',
