@@ -63,6 +63,7 @@ export function crearTarjetas({ calles, lugares, ejes }) {
         pregunta: `¿Dónde empieza y dónde termina ${c.nombre}?`,
         respuesta: `Empieza en ${juntarO(c.inicio)} y termina en ${juntarO(c.fin)}`,
         detalle: c.numeros && c.numeros[1] > 1 ? `Números del ${Math.max(1, c.numeros[0])} al ${c.numeros[1]}.` : null,
+        datos: { inicio: c.inicio, fin: c.fin, cruces: c.cruces },
       })
     }
     const sentido = sentidoClaro(c)
@@ -74,6 +75,7 @@ export function crearTarjetas({ calles, lugares, ejes }) {
         pregunta: `¿Cómo se circula por ${c.nombre}?`,
         respuesta: sentido,
         detalle: extremosClaros(c) ? `Va de ${c.inicio[0]} a ${c.fin[0]}.` : null,
+        datos: extremosClaros(c) ? { inicio: c.inicio[0], fin: c.fin[0] } : null,
       })
     }
   }
@@ -94,6 +96,7 @@ export function crearTarjetas({ calles, lugares, ejes }) {
             : `${eje.nombre}${desde ? `, yendo desde ${desde}` : ''}: ¿qué calle viene después de ${eje.cruces[i - 1]}?`,
         respuesta: cruce,
         detalle: lado ? `${cruce} ${lado}.` : null,
+        datos: { cruces: eje.cruces, indice: i },
       })
     })
   }
@@ -113,7 +116,72 @@ export function crearTarjetas({ calles, lugares, ejes }) {
       ]
         .filter(Boolean)
         .join(' '),
+      datos: { categoria: l.categoria, via: l.via },
     })
   }
   return mazos
+}
+
+// Modo test (estilo Kahoot): la respuesta buena y tres falsas que se le parezcan, desordenadas.
+// Devuelve null si no hay forma de inventar tres respuestas falsas creíbles para esa tarjeta.
+const barajar = (lista, azar) =>
+  lista
+    .map((x) => [azar(), x])
+    .sort((a, b) => a[0] - b[0])
+    .map(([, x]) => x)
+
+function elegir(candidatas, cuantas, correcta, azar) {
+  const distintas = [...new Set(candidatas)].filter((x) => x && x !== correcta)
+  return barajar(distintas, azar).slice(0, cuantas)
+}
+
+export function crearOpciones(t, mazos, azar = Math.random) {
+  const correcta = t.respuesta
+  const algunaDe = (lista) => lista[Math.floor(azar() * lista.length)]
+  let falsas = []
+  if (t.mazo === 'zona') {
+    falsas = elegir(mazos.zona.map((x) => x.respuesta), 3, correcta, azar)
+  } else if (t.mazo === 'extremos') {
+    // La buena al revés y mezclas con calles que de verdad cruza
+    const { inicio, fin, cruces } = t.datos
+    const otras = cruces.length >= 2 ? cruces : mazos.extremos.map((x) => x.datos.inicio[0])
+    const [i, f] = [juntarO(inicio), juntarO(fin)]
+    falsas = elegir(
+      [
+        `Empieza en ${f} y termina en ${i}`,
+        `Empieza en ${i} y termina en ${algunaDe(otras)}`,
+        `Empieza en ${algunaDe(otras)} y termina en ${f}`,
+        `Empieza en ${algunaDe(otras)} y termina en ${i}`,
+      ],
+      3,
+      correcta,
+      azar,
+    )
+  } else if (t.mazo === 'sentido') {
+    if (!t.datos) return null
+    const { inicio, fin } = t.datos
+    falsas = elegir(
+      ['Doble sentido', 'Peatonal', `Sentido único, de ${inicio} hacia ${fin}`, `Sentido único, de ${fin} hacia ${inicio}`],
+      3,
+      correcta,
+      azar,
+    )
+  } else if (t.mazo === 'cruces') {
+    // Otras calles del mismo eje, de las más cercanas en el orden (sin la que sale en la pregunta)
+    const { cruces, indice } = t.datos
+    const cercanas = cruces
+      .map((c, j) => [Math.abs(j - indice), c, j])
+      .filter(([, , j]) => j !== indice && j !== indice - 1)
+      .sort((a, b) => a[0] - b[0])
+      .slice(0, 6)
+      .map(([, c]) => c)
+    falsas = elegir(cercanas, 3, correcta, azar)
+    if (falsas.length < 3) falsas.push(...elegir(mazos.cruces.map((x) => x.respuesta), 3 - falsas.length, correcta, azar))
+  } else if (t.mazo === 'lugares') {
+    const mismoTipo = mazos.lugares.filter((x) => x.datos.categoria === t.datos.categoria && x.datos.via !== t.datos.via)
+    falsas = elegir(mismoTipo.map((x) => x.respuesta), 3, correcta, azar)
+    if (falsas.length < 3) falsas.push(...elegir(mazos.lugares.map((x) => x.respuesta), 3 - falsas.length, correcta, azar))
+  }
+  falsas = [...new Set(falsas)].filter((x) => x !== correcta)
+  return falsas.length >= 3 ? barajar([correcta, ...falsas.slice(0, 3)], azar) : null
 }

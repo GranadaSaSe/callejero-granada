@@ -941,6 +941,137 @@ li[data-ok='si'] .estado {
   border-color: #1565c0;
 }
 
+/* Modo test (estilo Kahoot) */
+
+.modo-test p {
+  margin: 0 0 12px;
+  color: var(--texto-suave);
+}
+
+.ajustes-test {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.ajustes-test select {
+  padding: 8px 10px;
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+  background: var(--fondo);
+  color: var(--texto);
+  font: inherit;
+}
+
+.boton-test {
+  border-color: #46178f;
+  background: #46178f;
+}
+
+.tiempo {
+  height: 8px;
+  margin-bottom: 12px;
+  border-radius: 4px;
+  background: var(--borde);
+  overflow: hidden;
+}
+
+.tiempo-relleno {
+  width: 100%;
+  height: 100%;
+  background: #46178f;
+  transition-property: width;
+  transition-timing-function: linear;
+}
+
+.pregunta-test {
+  min-height: 0;
+}
+
+.resultado-test .acierto {
+  margin: 0 0 6px;
+  color: var(--verde);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.resultado-test .fallo {
+  margin: 0 0 6px;
+  color: #d32f2f;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.opciones-test {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+@media (max-width: 480px) {
+  .opciones-test {
+    grid-template-columns: 1fr;
+  }
+}
+
+.opcion-test {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 10px;
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.3;
+  text-align: left;
+  box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+}
+
+.opcion-test .forma {
+  flex: none;
+  font-size: 22px;
+}
+
+.k-rojo {
+  background: #e21b3c;
+}
+
+.k-azul {
+  background: #1368ce;
+}
+
+.k-amarillo {
+  background: #c68a00;
+}
+
+.k-verde {
+  background: #26890c;
+}
+
+.opcion-test:disabled {
+  cursor: default;
+}
+
+.opcion-test.apagada {
+  opacity: 0.3;
+}
+
+.opcion-test.fallada {
+  opacity: 0.55;
+  text-decoration: line-through;
+}
+
+.opcion-test.buena {
+  outline: 4px solid var(--verde);
+  outline-offset: 2px;
+}
+
 .cargando {
   position: absolute;
   inset: 0;

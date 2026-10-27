@@ -636,7 +636,8 @@ export async function abrir(contenedor) {
           {
             class: 'boton',
             onclick: () => {
-              if (nombre?.value.trim()) guardarAutor(nombre.value)
+              // "nombre" solo existe la primera vez (cuando aún no hay autor guardado)
+              if (nombre && nombre.value.trim()) guardarAutor(nombre.value)
               const nota = anadirNota({
                 tipo: tipo.value,
                 comentario: comentario.value,
