@@ -13,7 +13,13 @@ App web instalable (PWA) para preparar la prueba de callejero de la oposición d
 ## Estado
 
 - Paso 0 terminado salvo el 0.8: "Hola Granada" publicada en https://granadasase.github.io/callejero-granada/ e instalada y probada en modo avión en Android e iPhone. El material de estudio irá a `material/` (no se sube a GitHub).
-- Fase 1 en curso en la rama `fase1-datos` (se une a `main` cuando la app tenga algo nuevo que enseñar). Pasos 1.1 y 1.2 hechos. Paso 1.3: el mapa de revisión está hecho y la persona va revisando los tramos dudosos poco a poco; mientras, se puede seguir con el 1.4.
+- Fase 1 en curso en la rama `fase1-datos` (se une a `main` cuando la app tenga algo nuevo que enseñar). Pasos 1.1, 1.2 y 1.4 hechos. Paso 1.3: el mapa de revisión está hecho y la persona va revisando los tramos dudosos poco a poco (207 a 27-10-2026). Siguiente: 1.5 (ejes principales).
+
+## App
+
+- Sin framework: `src/main.js` hace de enrutador por `#/ruta` y carga cada vista de `src/vistas/` la primera vez. `src/crear.js` crea elementos sin usar HTML (los textos nunca se insertan como HTML).
+- Mapa de estudio (`src/vistas/mapa.js`): MapLibre empaquetado por Vite (`setWorkerUrl` con `?url`), dibujado solo con `public/datos/` y las letras de `public/fuentes/` (Noto Sans, glifos de demotiles.maplibre.org), así que funciona sin internet. La regla CSS del contenedor del mapa necesita más especificidad que `.maplibregl-map`.
+- El service worker guarda todo (datos, letras, librería): ~6,5 MB. Al probar en el navegador integrado, borrar el service worker y las cachés y añadir `?r=N` a la dirección para no ver una versión vieja.
 - Cifras y pendientes de los datos: `datos/informe-datos.md` (se regenera con `npm run datos:procesar`).
 
 ## Datos
