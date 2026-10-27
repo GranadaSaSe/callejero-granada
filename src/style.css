@@ -349,6 +349,22 @@ li[data-ok='si'] .estado {
   color: var(--texto-suave);
 }
 
+.campo input[type='text'] {
+  padding: 8px 10px;
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+  background: var(--fondo);
+  color: var(--texto);
+  font: inherit;
+  font-size: 16px;
+}
+
+.aviso-notas {
+  margin: 10px 0 0 !important;
+  color: var(--verde);
+  font-weight: 600;
+}
+
 .mapa-arriba {
   position: absolute;
   top: max(12px, env(safe-area-inset-top));

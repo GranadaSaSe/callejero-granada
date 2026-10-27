@@ -1,11 +1,12 @@
 // Notas que se dejan en el mapa (pulsación larga en el móvil o clic derecho en el ordenador) para revisar
 // después con Claude: un sentido mal, una calle que es peatonal, un nombre que falta...
-// Se guardan en el dispositivo y se envían como una incidencia ("issue") del repositorio de GitHub del
-// proyecto, que Claude puede leer.
+// Se guardan en el dispositivo. Para reunirlas, cada persona comparte sus notas en un archivo de texto
+// (por WhatsApp, por ejemplo). Quien lo recibe puede abrirlo en su app para verlas en el mapa, o
+// guardarlo en la carpeta notas-recibidas/ del proyecto para que Claude las lea (npm run notas).
 
 const CLAVE = 'callejero-notas'
-const REPOSITORIO = 'https://github.com/GranadaSaSe/callejero-granada'
-const LARGO_MAXIMO = 7000 // GitHub no admite direcciones mucho más largas
+const CLAVE_AUTOR = 'callejero-autor'
+export const MARCA_DATOS = '--- DATOS PARA LA APP (no borrar) ---'
 
 export const TIPOS = [
   'Sentido de circulación incorrecto',
@@ -36,60 +37,161 @@ function guardarNotas(notas) {
   for (const funcion of oyentes) funcion(notas)
 }
 
+export function leerAutor() {
+  try {
+    return localStorage.getItem(CLAVE_AUTOR) ?? ''
+  } catch {
+    return ''
+  }
+}
+
+export function guardarAutor(nombre) {
+  try {
+    localStorage.setItem(CLAVE_AUTOR, nombre.trim().slice(0, 40))
+  } catch {
+    // Sin almacenamiento: el nombre se pedirá de nuevo
+  }
+}
+
 export function anadirNota(datos) {
-  const nota = { id: Date.now().toString(36), fecha: new Date().toISOString(), enviada: null, ...datos }
+  const nota = {
+    id: Date.now().toString(36),
+    fecha: new Date().toISOString(),
+    autor: leerAutor() || null,
+    compartida: null,
+    ...datos,
+  }
   guardarNotas([...leerNotas(), nota])
   return nota
 }
 
 export const borrarNota = (id) => guardarNotas(leerNotas().filter((n) => n.id !== id))
 
-const fecha = (iso) => new Date(iso).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })
+export const describirFecha = (iso) =>
+  new Date(iso).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })
 
-function textoNota(n, i) {
-  const [lon, lat] = n.punto
-  const app = `${location.origin}${import.meta.env.BASE_URL}`
+const sinAcentos = (texto) =>
+  texto
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^A-Za-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+
+function textoDe(n, i) {
+  const [lon, lat] = n.punto.map((x) => x.toFixed(6))
   return [
-    `### ${i + 1}. ${n.tipo}`,
-    n.comentario?.trim() || '(sin comentario)',
+    `${i + 1}. ${n.tipo}${n.calle ? ` — ${n.calle.nombre}` : n.lugar ? ` — ${n.lugar.nombre}` : ''}`,
+    `   ${n.comentario?.trim() || '(sin comentario)'}`,
+    `   Punto: ${lat}, ${lon} · https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=19/${lat}/${lon}`,
+    `   Fecha: ${describirFecha(n.fecha)}`,
     '',
-    n.calle ? `- Calle: ${n.calle.nombre} (id ${n.calle.id}) · [ver en la app](${app}#/mapa?calle=${n.calle.id})` : '- Calle: ninguna',
-    n.tramo ? `- Tramo: ${n.tramo}` : null,
-    n.lugar ? `- Lugar: ${n.lugar.nombre} (${n.lugar.id})` : null,
-    `- Punto: ${lat.toFixed(6)}, ${lon.toFixed(6)} · [ver en OpenStreetMap](https://www.openstreetmap.org/?mlat=${lat.toFixed(6)}&mlon=${lon.toFixed(6)}#map=19/${lat.toFixed(6)}/${lon.toFixed(6)})`,
-    `- Fecha: ${fecha(n.fecha)}`,
-    '',
-  ]
-    .filter((linea) => linea !== null)
-    .join('\n')
+  ].join('\n')
 }
 
-function direccion(notas) {
-  const titulo =
-    notas.length === 1
-      ? `Nota: ${notas[0].tipo}${notas[0].calle ? ` en ${notas[0].calle.nombre}` : ''}`
-      : `${notas.length} notas desde la app`
-  const cuerpo = [`Notas enviadas desde la app (versión ${__VERSION__}).`, '', ...notas.map(textoNota)].join('\n')
-  return `${REPOSITORIO}/issues/new?${new URLSearchParams({ title: titulo, body: cuerpo })}`
-}
-
-// Abre GitHub con las notas pendientes ya escritas. Si son muchas, se envían las que caben y el resto
-// queda para el siguiente envío. Devuelve cuántas se han enviado.
-export function enviarNotas() {
-  const pendientes = leerNotas().filter((n) => !n.enviada)
-  let lote = []
-  for (const nota of pendientes) {
-    if (lote.length && direccion([...lote, nota]).length > LARGO_MAXIMO) break
-    lote.push(nota)
-  }
-  if (!lote.length) return 0
-  window.open(direccion(lote), '_blank', 'noopener')
-  const enviadas = new Set(lote.map((n) => n.id))
+// Archivo de texto con las notas: se lee bien a simple vista y al final lleva los datos para la app
+export function archivoDeNotas(notas) {
+  const autor = leerAutor() || 'Sin nombre'
   const ahora = new Date().toISOString()
-  guardarNotas(leerNotas().map((n) => (enviadas.has(n.id) ? { ...n, enviada: ahora } : n)))
-  return lote.length
+  const contenido = [
+    'NOTAS DEL CALLEJERO DE GRANADA',
+    `De: ${autor} · ${notas.length} nota${notas.length === 1 ? '' : 's'} · ${describirFecha(ahora)} · versión ${__VERSION__}`,
+    '',
+    ...notas.map(textoDe),
+    MARCA_DATOS,
+    JSON.stringify({
+      formato: 'callejero-notas',
+      version: 1,
+      autor,
+      fecha: ahora,
+      notas: notas.map(({ id, fecha, tipo, comentario, punto, calle, lugar, tramo }) => ({
+        id, fecha, tipo, comentario, punto, calle, lugar, tramo,
+      })),
+    }),
+    '',
+  ].join('\n')
+  return new File([contenido], `notas-callejero-${sinAcentos(autor) || 'sin-nombre'}-${ahora.slice(0, 10)}.txt`, {
+    type: 'text/plain',
+  })
 }
 
-export const volverAEnviar = (id) => guardarNotas(leerNotas().map((n) => (n.id === id ? { ...n, enviada: null } : n)))
+function descargar(archivo) {
+  const direccion = URL.createObjectURL(archivo)
+  const enlace = Object.assign(document.createElement('a'), { href: direccion, download: archivo.name })
+  document.body.append(enlace)
+  enlace.click()
+  enlace.remove()
+  setTimeout(() => URL.revokeObjectURL(direccion), 10_000)
+}
 
-export const describirFecha = fecha
+// Comparte las notas propias en un archivo: en el móvil abre el menú de compartir (WhatsApp...),
+// en el ordenador lo descarga. Devuelve 'compartido', 'descargado', 'cancelado' o 'nada'.
+export async function compartirNotas({ todas = false } = {}) {
+  const propias = leerNotas().filter((n) => !n.importada && (todas || !n.compartida))
+  if (!propias.length) return 'nada'
+  const archivo = archivoDeNotas(propias)
+  let resultado = 'descargado'
+  if (navigator.canShare?.({ files: [archivo] })) {
+    try {
+      await navigator.share({ files: [archivo], title: 'Notas del callejero de Granada' })
+      resultado = 'compartido'
+    } catch (error) {
+      if (error.name === 'AbortError') return 'cancelado'
+      descargar(archivo)
+    }
+  } else {
+    descargar(archivo)
+  }
+  const ids = new Set(propias.map((n) => n.id))
+  const ahora = new Date().toISOString()
+  guardarNotas(leerNotas().map((n) => (ids.has(n.id) ? { ...n, compartida: ahora } : n)))
+  return resultado
+}
+
+// Lee los datos de un archivo de notas (el bloque que va tras MARCA_DATOS, o el archivo entero si es JSON)
+export function datosDeArchivo(texto) {
+  const posicion = texto.indexOf(MARCA_DATOS)
+  const datos = JSON.parse(posicion === -1 ? texto : texto.slice(posicion + MARCA_DATOS.length))
+  if (datos?.formato !== 'callejero-notas' || !Array.isArray(datos.notas)) throw new Error('No es un archivo de notas')
+  return datos
+}
+
+const textoSeguro = (valor, largo) => (typeof valor === 'string' ? valor.slice(0, largo) : '')
+const referencia = (r) => (r && typeof r.nombre === 'string' ? { id: r.id ?? null, nombre: r.nombre.slice(0, 120) } : null)
+
+// Añade a este dispositivo las notas de un archivo de otra persona (sin repetir las que ya estén)
+export async function importarNotas(archivo) {
+  const datos = datosDeArchivo(await archivo.text())
+  const autor = textoSeguro(datos.autor, 40) || 'Sin nombre'
+  const existentes = leerNotas()
+  const yaEstan = new Set(existentes.map((n) => n.id))
+  const nuevas = []
+  let repetidas = 0
+  let estropeadas = 0
+  for (const n of datos.notas) {
+    const punto = Array.isArray(n?.punto) ? n.punto.map(Number) : []
+    if (punto.length !== 2 || punto.some((x) => !Number.isFinite(x)) || typeof n.tipo !== 'string') {
+      estropeadas++
+      continue
+    }
+    const id = `${sinAcentos(autor)}-${textoSeguro(n.id, 20)}`
+    if (yaEstan.has(id)) {
+      repetidas++
+      continue
+    }
+    yaEstan.add(id)
+    nuevas.push({
+      id,
+      fecha: textoSeguro(n.fecha, 30) || new Date().toISOString(),
+      tipo: n.tipo.slice(0, 80),
+      comentario: textoSeguro(n.comentario, 2000),
+      punto,
+      calle: referencia(n.calle),
+      lugar: referencia(n.lugar),
+      tramo: Number.isFinite(n.tramo) ? n.tramo : null,
+      autor,
+      importada: true,
+    })
+  }
+  guardarNotas([...existentes, ...nuevas])
+  return { autor, nuevas: nuevas.length, repetidas, estropeadas }
+}

@@ -18,3 +18,6 @@ material/
 
 # Ajustes locales de Claude
 .claude/settings.local.json
+
+# Archivos de notas recibidos de otras personas (llevan sus nombres): se quedan en este ordenador
+notas-recibidas/

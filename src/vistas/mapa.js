@@ -13,7 +13,16 @@ import urlTrabajador from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { crear, miles, normalizar } from '../crear.js'
 import { cargar, GRUPOS, grupoDe } from '../datos.js'
-import { alCambiarNotas, anadirNota, borrarNota, describirFecha, leerNotas, TIPOS } from '../notas.js'
+import {
+  alCambiarNotas,
+  anadirNota,
+  borrarNota,
+  describirFecha,
+  guardarAutor,
+  leerAutor,
+  leerNotas,
+  TIPOS,
+} from '../notas.js'
 
 setWorkerUrl(urlTrabajador)
 
@@ -154,7 +163,7 @@ const puntosDeNotas = (notas) => ({
   type: 'FeatureCollection',
   features: notas.map((n) => ({
     type: 'Feature',
-    properties: { id: n.id, enviada: Boolean(n.enviada) },
+    properties: { id: n.id, estado: n.importada ? 'ajena' : n.compartida ? 'compartida' : 'nueva' },
     geometry: { type: 'Point', coordinates: n.punto },
   })),
 })
@@ -356,7 +365,8 @@ function estilo(base, { tramos, zonas, lugares, nombres, notas }) {
         type: 'circle',
         source: 'notas',
         paint: {
-          'circle-color': ['case', ['get', 'enviada'], '#8d6e63', '#b3261e'],
+          // Rojo: mía sin compartir · marrón: mía ya compartida · azul: de un compañero
+          'circle-color': ['match', ['get', 'estado'], 'ajena', '#1565c0', 'compartida', '#8d6e63', '#b3261e'],
           'circle-radius': 8,
           'circle-stroke-color': '#ffffff',
           'circle-stroke-width': 2.5,
@@ -609,12 +619,15 @@ export async function abrir(contenedor) {
   function formularioNota(punto, sobre = {}) {
     const tipo = crear('select', {}, TIPOS.map((t) => crear('option', { value: t }, t)))
     const comentario = crear('textarea', { rows: 3, placeholder: 'Qué está mal y cómo debería ser (opcional)' })
+    // La primera vez se pide el nombre, para que al compartir las notas se sepa de quién son
+    const nombre = !leerAutor() && crear('input', { type: 'text', placeholder: 'Por ejemplo: Miguel', maxlength: 40 })
     const titulo = sobre.calle?.nombre ?? sobre.lugar?.nombre ?? 'Punto del mapa'
     mostrarFicha([
       crear('p', { class: 'ficha-tipo' }, 'Nueva nota'),
       crear('h2', {}, titulo),
       crear('label', { class: 'campo' }, 'Qué pasa', tipo),
       crear('label', { class: 'campo' }, 'Comentario', comentario),
+      nombre && crear('label', { class: 'campo' }, 'Tu nombre (solo la primera vez)', nombre),
       crear(
         'div',
         { class: 'acciones-eje' },
@@ -623,6 +636,7 @@ export async function abrir(contenedor) {
           {
             class: 'boton',
             onclick: () => {
+              if (nombre?.value.trim()) guardarAutor(nombre.value)
               const nota = anadirNota({
                 tipo: tipo.value,
                 comentario: comentario.value,
@@ -638,7 +652,7 @@ export async function abrir(contenedor) {
         ),
         crear('button', { class: 'boton secundario', onclick: () => cerrarFicha() }, 'Cancelar'),
       ),
-      crear('p', { class: 'ficha-nota' }, 'Se guarda en este dispositivo. Para enviársela a Claude: Inicio → Mis notas.'),
+      crear('p', { class: 'ficha-nota' }, 'Se guarda en este dispositivo. Para compartirla: Inicio → Notas.'),
     ])
   }
 
@@ -653,12 +667,14 @@ export async function abrir(contenedor) {
         { class: 'ficha-datos' },
         nota.calle && dato('Calle', nota.calle.nombre),
         nota.lugar && dato('Lugar', nota.lugar.nombre),
-        dato('Estado', nota.enviada ? `Enviada el ${describirFecha(nota.enviada)}` : 'Sin enviar'),
+        nota.importada
+          ? dato('De', nota.autor)
+          : dato('Estado', nota.compartida ? `Compartida el ${describirFecha(nota.compartida)}` : 'Sin compartir'),
       ),
       crear(
         'div',
         { class: 'acciones-eje' },
-        crear('a', { class: 'boton secundario', href: '#/inicio' }, 'Ir a Mis notas'),
+        crear('a', { class: 'boton secundario', href: '#/inicio' }, 'Ir a Notas'),
         crear(
           'button',
           {
@@ -876,7 +892,7 @@ export async function abrir(contenedor) {
     casillaDe('zonas', 'Distritos y barrios'),
     casillaDe('sentidos', 'Flechas de sentido'),
     casillaDe('dudosos', 'Sentidos por revisar (?)'),
-    casillaDe('notas', 'Mis notas'),
+    casillaDe('notas', 'Notas (mías en rojo, de compañeros en azul)'),
     crear('h3', {}, 'Lugares de interés'),
     ...GRUPOS.map((g) =>
       casilla(

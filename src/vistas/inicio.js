@@ -1,6 +1,15 @@
 // Pantalla de inicio: accesos a cada sección y estado de la app en este dispositivo.
 import { crear, rellenar } from '../crear.js'
-import { alCambiarNotas, borrarNota, describirFecha, enviarNotas, leerNotas, volverAEnviar } from '../notas.js'
+import {
+  alCambiarNotas,
+  borrarNota,
+  compartirNotas,
+  describirFecha,
+  guardarAutor,
+  importarNotas,
+  leerAutor,
+  leerNotas,
+} from '../notas.js'
 
 const SECCIONES = [
   { titulo: 'Mapa de estudio', texto: 'Calles, sentidos, distritos, barrios y lugares de interés', enlace: '#/mapa' },
@@ -21,49 +30,92 @@ function fila(texto) {
   }
 }
 
-// Notas dejadas en el mapa y botón para enviárselas a Claude
+// Notas dejadas en el mapa: las propias, las de compañeros, compartir por archivo y abrir archivos ajenos
+let avisoNotas = ''
+
+function filaNota(n) {
+  return crear(
+    'li',
+    {},
+    crear('strong', {}, n.tipo),
+    crear('p', {}, [n.calle?.nombre ?? n.lugar?.nombre, n.comentario?.trim()].filter(Boolean).join(' · ') || 'Sin comentario'),
+    crear(
+      'small',
+      {},
+      n.importada
+        ? `De ${n.autor} · ${describirFecha(n.fecha)}`
+        : n.compartida
+          ? `Compartida el ${describirFecha(n.compartida)}`
+          : `Sin compartir · ${describirFecha(n.fecha)}`,
+    ),
+    crear(
+      'div',
+      { class: 'chips' },
+      crear('a', { class: 'chip', href: `#/mapa?nota=${encodeURIComponent(n.id)}` }, 'Ver en el mapa'),
+      crear('button', { class: 'chip', onclick: () => confirm('¿Borrar esta nota?') && borrarNota(n.id) }, 'Borrar'),
+    ),
+  )
+}
+
 function pintarNotas(tarjeta) {
   const notas = leerNotas()
-  const pendientes = notas.filter((n) => !n.enviada).length
+  const propias = notas.filter((n) => !n.importada)
+  const ajenas = notas.filter((n) => n.importada)
+  const sinCompartir = propias.filter((n) => !n.compartida).length
+
+  const nombre = crear('input', { type: 'text', value: leerAutor(), placeholder: 'Por ejemplo: Miguel', maxlength: 40 })
+  nombre.addEventListener('change', () => guardarAutor(nombre.value))
+  const archivo = crear('input', { type: 'file', accept: '.txt,.json,text/plain,application/json', hidden: true })
+  archivo.addEventListener('change', async () => {
+    try {
+      const { autor, nuevas, repetidas, estropeadas } = await importarNotas(archivo.files[0])
+      const detalles = [repetidas && `${repetidas} ya las tenías`, estropeadas && `${estropeadas} no se han podido leer`]
+      avisoNotas =
+        `Abiertas ${nuevas} nota${nuevas === 1 ? '' : 's'} de ${autor}` +
+        (detalles.some(Boolean) ? ` (${detalles.filter(Boolean).join(', ')}).` : '.')
+    } catch {
+      avisoNotas = 'Ese archivo no es un archivo de notas de la app.'
+    }
+    pintarNotas(tarjeta)
+  })
+  async function compartir(todas) {
+    if (!leerAutor() && nombre.value.trim()) guardarAutor(nombre.value)
+    const resultado = await compartirNotas({ todas })
+    avisoNotas = {
+      compartido: 'Notas compartidas.',
+      descargado: 'Se ha descargado el archivo con tus notas: mándalo por WhatsApp o pásaselo a Claude.',
+      cancelado: '',
+      nada: 'No tienes notas que compartir.',
+    }[resultado]
+    pintarNotas(tarjeta)
+  }
+
   rellenar(
     tarjeta,
-    crear('h2', {}, 'Mis notas'),
-    notas.length === 0
-      ? crear(
-          'p',
-          {},
-          'Si ves algo mal en el mapa, mantén pulsado ese sitio (en el ordenador, clic derecho) y deja una nota. ' +
-            'Aquí podrás enviárselas a Claude para arreglarlo.',
-        )
-      : [
-          crear(
-            'ul',
-            { class: 'lista-notas' },
-            [...notas].reverse().map((n) =>
-              crear(
-                'li',
-                {},
-                crear('strong', {}, n.tipo),
-                crear('p', {}, [n.calle?.nombre ?? n.lugar?.nombre, n.comentario?.trim()].filter(Boolean).join(' · ') || 'Sin comentario'),
-                crear('small', {}, n.enviada ? `Enviada el ${describirFecha(n.enviada)}` : `Sin enviar · ${describirFecha(n.fecha)}`),
-                crear(
-                  'div',
-                  { class: 'chips' },
-                  crear('a', { class: 'chip', href: `#/mapa?nota=${n.id}` }, 'Ver en el mapa'),
-                  n.enviada && crear('button', { class: 'chip', onclick: () => volverAEnviar(n.id) }, 'Volver a enviar'),
-                  crear('button', { class: 'chip', onclick: () => confirm('¿Borrar esta nota?') && borrarNota(n.id) }, 'Borrar'),
-                ),
-              ),
-            ),
-          ),
-          pendientes > 0 && crear('button', { class: 'boton', onclick: enviarNotas }, `Enviar a Claude (${pendientes})`),
-          crear(
-            'p',
-            { class: 'ficha-nota' },
-            'Al enviar se abre GitHub con tus notas ya escritas: pulsa «Create» para mandarlas. ' +
-              'Hace falta haber iniciado sesión en GitHub en el navegador del móvil.',
-          ),
-        ],
+    crear('h2', {}, 'Notas'),
+    crear(
+      'p',
+      {},
+      'Si ves algo mal en el mapa, mantén pulsado ese sitio (en el ordenador, clic derecho) y deja una nota. ' +
+        'Luego compártelas en un archivo, por WhatsApp por ejemplo.',
+    ),
+    crear('label', { class: 'campo' }, 'Tu nombre, para que se sepa de quién son tus notas', nombre),
+    propias.length > 0 && [crear('h3', {}, `Mis notas (${propias.length})`), crear('ul', { class: 'lista-notas' }, [...propias].reverse().map(filaNota))],
+    crear(
+      'div',
+      { class: 'acciones-eje' },
+      sinCompartir > 0 && crear('button', { class: 'boton', onclick: () => compartir(false) }, `Compartir mis notas (${sinCompartir})`),
+      sinCompartir === 0 &&
+        propias.length > 0 &&
+        crear('button', { class: 'boton secundario', onclick: () => compartir(true) }, 'Compartir todas otra vez'),
+      crear('button', { class: 'boton secundario', onclick: () => archivo.click() }, 'Abrir notas de un compañero'),
+    ),
+    archivo,
+    avisoNotas && crear('p', { class: 'aviso-notas', role: 'status' }, avisoNotas),
+    ajenas.length > 0 && [
+      crear('h3', {}, `Notas de compañeros (${ajenas.length})`),
+      crear('ul', { class: 'lista-notas' }, [...ajenas].reverse().map(filaNota)),
+    ],
   )
 }
 
