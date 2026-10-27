@@ -3,19 +3,12 @@
 
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { categoria } from './lib/categorias.mjs'
 import { centroDeRelacion, puntoEnRelacion } from './lib/geo.mjs'
+import { normalizar } from './lib/nombres.mjs'
 
 const CARPETA = join(import.meta.dirname, '..', 'datos', 'crudos')
 const leer = async (nombre) => JSON.parse(await readFile(join(CARPETA, nombre), 'utf8'))
-
-const normalizar = (texto) =>
-  texto
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9 ]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
 
 const contar = (lista) => {
   const recuento = new Map()
@@ -93,29 +86,6 @@ console.log(`Ejemplos sin pareja exacta: ${sinPareja.slice(0, 12).join(' · ')}`
 
 // Edificios de interés
 titulo('Edificios y lugares de interés (OpenStreetMap)')
-function categoria(t) {
-  if (t.amenity === 'hospital') return 'Hospitales'
-  if (t.amenity === 'clinic' || t.healthcare === 'centre') return 'Centros de salud'
-  if (t.amenity === 'school') return 'Colegios e institutos'
-  if (t.amenity === 'kindergarten') return 'Escuelas infantiles'
-  if (t.amenity === 'college' || t.amenity === 'university') return 'Universidad y formación'
-  if (t.amenity === 'social_facility' || t.amenity === 'nursing_home') return 'Residencias y centros sociales'
-  if (t.amenity === 'fire_station') return 'Bomberos'
-  if (t.amenity === 'police') return 'Policía'
-  if (['townhall', 'courthouse'].includes(t.amenity) || t.office === 'government') return 'Edificios oficiales'
-  if (t.tourism === 'artwork' || ['statue', 'bust'].includes(t.memorial)) return 'Estatuas y esculturas'
-  if (t.amenity === 'place_of_worship') return 'Iglesias y templos'
-  if (t.tourism === 'museum' || ['theatre', 'cinema', 'library', 'arts_centre'].includes(t.amenity)) return 'Cultura'
-  if (t.tourism === 'viewpoint') return 'Miradores'
-  if (t.historic || t.tourism === 'attraction') return 'Monumentos'
-  if (t.railway || t.amenity === 'bus_station') return 'Transporte'
-  if (t.shop === 'mall' || t.amenity === 'marketplace') return 'Centros comerciales y mercados'
-  if (['stadium', 'sports_centre'].includes(t.leisure)) return 'Instalaciones deportivas'
-  if (['park', 'garden'].includes(t.leisure)) return 'Parques y jardines'
-  if (t.landuse === 'cemetery' || t.amenity === 'grave_yard') return 'Cementerios'
-  if (t.amenity === 'fountain') return 'Fuentes'
-  return 'Otros'
-}
 const lugares = edificios.elements.map((e) => ({ nombre: e.tags.name, categoria: categoria(e.tags) }))
 const porCategoria = new Map()
 for (const { nombre, categoria: c } of lugares) {

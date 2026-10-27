@@ -1,0 +1,25 @@
+// Tipo de lugar de interés a partir de las etiquetas de OpenStreetMap.
+// El orden importa: una iglesia histórica cuenta como iglesia y una estatua conmemorativa como estatua.
+export function categoria(t) {
+  if (t.amenity === 'hospital') return 'Hospitales'
+  if (t.amenity === 'clinic' || t.healthcare === 'centre') return 'Centros de salud'
+  if (t.amenity === 'school') return 'Colegios e institutos'
+  if (t.amenity === 'kindergarten') return 'Escuelas infantiles'
+  if (t.amenity === 'college' || t.amenity === 'university') return 'Universidad y formación'
+  if (t.amenity === 'social_facility' || t.amenity === 'nursing_home') return 'Residencias y centros sociales'
+  if (t.amenity === 'fire_station') return 'Bomberos'
+  if (t.amenity === 'police') return 'Policía'
+  if (['townhall', 'courthouse'].includes(t.amenity) || t.office === 'government') return 'Edificios oficiales'
+  if (t.tourism === 'artwork' || ['statue', 'bust'].includes(t.memorial)) return 'Estatuas y esculturas'
+  if (t.amenity === 'place_of_worship') return 'Iglesias y templos'
+  if (t.tourism === 'museum' || ['theatre', 'cinema', 'library', 'arts_centre'].includes(t.amenity)) return 'Cultura'
+  if (t.tourism === 'viewpoint') return 'Miradores'
+  if (t.historic || t.tourism === 'attraction') return 'Monumentos'
+  if (t.railway || t.amenity === 'bus_station') return 'Transporte'
+  if (t.shop === 'mall' || t.amenity === 'marketplace') return 'Centros comerciales y mercados'
+  if (['stadium', 'sports_centre'].includes(t.leisure)) return 'Instalaciones deportivas'
+  if (['park', 'garden'].includes(t.leisure)) return 'Parques y jardines'
+  if (t.landuse === 'cemetery' || t.amenity === 'grave_yard') return 'Cementerios'
+  if (t.amenity === 'fountain') return 'Fuentes'
+  return 'Otros'
+}
