@@ -4,6 +4,9 @@ dist/
 dev-dist/
 *.local
 
+# Datos descargados sin procesar: se vuelven a descargar con `npm run datos:descargar`
+datos/crudos/
+
 # Material de estudio (temario, exámenes, apuntes): se queda solo en este ordenador
 material/
 

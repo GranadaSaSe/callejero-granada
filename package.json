@@ -8,7 +8,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "iconos": "pwa-assets-generator"
+    "iconos": "pwa-assets-generator",
+    "datos:descargar": "node scripts/descargar-datos.mjs",
+    "datos:resumen": "node scripts/resumen-datos.mjs"
   },
   "devDependencies": {
     "@vite-pwa/assets-generator": "^2.0.0",
