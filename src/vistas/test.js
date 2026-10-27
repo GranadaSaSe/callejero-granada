@@ -1,6 +1,7 @@
 // Test tipo examen (paso 1.7): preguntas a, b, c, d por temas, con penalización por fallo y nota sobre
 // 10, como en la oposición. Se puede dejar en blanco, marcar dudosas y volver atrás. Al entregar se ve la
 // corrección de cada pregunta con su explicación y un enlace al mapa.
+import { apuntar } from '../actividad.js'
 import { crear, rellenar } from '../crear.js'
 import { cargar } from '../datos.js'
 import { DISTRITOS, ejesActuales } from '../ejes-lista.js'
@@ -334,6 +335,8 @@ export async function abrir(contenedor) {
       if (p.tarjeta) estados[p.tarjeta] = calificar(estados[p.tarjeta], estado(i) === 'bien' ? 'bien' : 'otra')
     })
     guardar(CLAVES.estados, estados)
+    // Para la racha y los aciertos por tema (las de en blanco cuentan como no acertadas)
+    apuntar(preguntas.map((p, i) => ({ tema: p.tema, acierto: estado(i) === 'bien' })))
     guardar(CLAVES.historial, [
       { fecha: new Date().toISOString(), total, aciertos, fallos, enBlanco, nota: puntuacion, penalizacion: ajustes.penalizacion },
       ...leer(CLAVES.historial, []),
@@ -436,7 +439,7 @@ export async function abrir(contenedor) {
   }
 
   document.addEventListener('keydown', (e) => {
-    if (!teclas || contenedor.hidden || notaAbierta() || e.target.matches('input, select, textarea') || e.ctrlKey || e.metaKey || e.altKey)
+    if (!teclas || contenedor.hidden || notaAbierta() || e.target.matches?.('input, select, textarea') || e.ctrlKey || e.metaKey || e.altKey)
       return
     teclas(e)
   })

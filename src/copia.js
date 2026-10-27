@@ -21,7 +21,7 @@ function clavesGuardadas() {
 }
 
 // ¿Hay algo que merezca una copia? (tarjetas repasadas, tests hechos, notas...)
-export const hayProgreso = () => clavesGuardadas().some((c) => /tarjetas$|historial|notas$|ejes-/.test(c))
+export const hayProgreso = () => clavesGuardadas().some((c) => /tarjetas$|historial|notas$|ejes-|actividad/.test(c))
 
 export function diasDesdeLaUltimaCopia() {
   try {

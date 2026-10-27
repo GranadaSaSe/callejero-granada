@@ -1,6 +1,7 @@
 // Tarjetas de repaso (paso 1.6): preguntas y respuestas sobre el callejero con repaso espaciado.
 // Se lee la pregunta, se intenta recordar, se destapa la respuesta y se dice cómo ha ido; según eso la
 // tarjeta vuelve a salir en unos minutos o en unos días. El progreso se guarda en el dispositivo.
+import { apuntar, temaDeMazo } from '../actividad.js'
 import { crear, rellenar } from '../crear.js'
 import { cargar } from '../datos.js'
 import { DISTRITOS, ejesActuales } from '../ejes-lista.js'
@@ -266,6 +267,7 @@ export async function abrir(contenedor) {
       const nueva = !estados[tarjeta.id]
       estados[tarjeta.id] = calificar(estados[tarjeta.id], respuesta)
       guardar(CLAVES.estados, estados)
+      apuntar([{ tema: temaDeMazo(tarjeta.mazo), acierto: respuesta !== 'otra' }])
       if (nueva) {
         contador = { fecha: hoy(), nuevas: nuevasYaHoy() + 1 }
         guardar(CLAVES.hoy, contador)
@@ -444,6 +446,7 @@ export async function abrir(contenedor) {
       }
       estados[tarjeta.id] = calificar(estados[tarjeta.id], acierto ? 'bien' : 'otra')
       guardar(CLAVES.estados, estados)
+      apuntar([{ tema: temaDeMazo(tarjeta.mazo), acierto }])
 
       const barra = pagina.querySelector('.tiempo-relleno')
       if (barra) {
@@ -532,7 +535,7 @@ export async function abrir(contenedor) {
   }
 
   document.addEventListener('keydown', (e) => {
-    if (!enSesion || contenedor.hidden || notaAbierta() || e.target.matches('input, select, textarea')) return
+    if (!enSesion || contenedor.hidden || notaAbierta() || e.target.matches?.('input, select, textarea')) return
     enSesion.tecla(e)
   })
 

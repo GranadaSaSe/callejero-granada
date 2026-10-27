@@ -1326,3 +1326,180 @@ li[data-ok='si'] .estado {
     color: #ffb05c;
   }
 }
+
+/* Tu progreso (paso 1.10) */
+
+.resumen-progreso {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--borde);
+  border-radius: 12px;
+  background: var(--tarjeta);
+  color: var(--texto);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.volver {
+  display: inline-block;
+  margin-bottom: 8px;
+}
+
+.numero-grande {
+  margin: 0 0 6px !important;
+}
+
+.numero-grande strong {
+  font-size: 44px;
+  line-height: 1.1;
+}
+
+.numero-grande span {
+  color: var(--texto-suave);
+  font-size: 17px;
+}
+
+.editar-fecha {
+  margin-top: 8px;
+}
+
+.campo input[type='date'] {
+  max-width: 220px;
+  padding: 8px 10px;
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+  background: var(--fondo);
+  color: var(--texto);
+  font: inherit;
+  font-size: 16px;
+}
+
+.tarjeta > .enlace-discreto {
+  margin-top: 10px;
+}
+
+/* Calendario: un solo color que se oscurece cuantas más preguntas se contestan ese día */
+.calendario {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  max-width: 280px;
+  margin: 14px auto 0;
+}
+
+.dia-semana {
+  color: var(--texto-suave);
+  font-size: 12px;
+  text-align: center;
+}
+
+.dia-calendario {
+  display: block;
+  aspect-ratio: 1;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: var(--borde);
+  cursor: pointer;
+}
+
+.dia-calendario.futuro {
+  background: transparent;
+  cursor: default;
+}
+
+.dia-calendario.nivel-1 {
+  background: color-mix(in srgb, var(--rojo) 30%, var(--tarjeta));
+}
+
+.dia-calendario.nivel-2 {
+  background: color-mix(in srgb, var(--rojo) 55%, var(--tarjeta));
+}
+
+.dia-calendario.nivel-3 {
+  background: color-mix(in srgb, var(--rojo) 78%, var(--tarjeta));
+}
+
+.dia-calendario.nivel-4 {
+  background: var(--rojo);
+}
+
+.dia-calendario.es-hoy {
+  outline: 2px solid var(--texto-suave);
+  outline-offset: 1px;
+}
+
+.dia-calendario.elegido {
+  outline: 2px solid var(--texto);
+  outline-offset: 1px;
+}
+
+.leyenda-calendario {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  margin: 8px 0 0;
+  color: var(--texto-suave);
+  font-size: 12px;
+}
+
+.leyenda-calendario .dia-calendario {
+  width: 12px;
+  cursor: default;
+}
+
+.detalle-dia {
+  margin: 8px 0 0 !important;
+  font-size: 14px;
+  text-align: center;
+}
+
+.filtro-periodo {
+  margin-bottom: 12px;
+}
+
+.lista-temas {
+  display: grid;
+  gap: 14px;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.fila-tema-cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 2px 10px;
+  font-size: 15px;
+}
+
+.fila-tema-cabecera span {
+  color: var(--texto-suave);
+  font-size: 14px;
+}
+
+.barra-tema {
+  height: 8px;
+  margin: 6px 0 4px;
+  border-radius: 4px;
+  background: var(--borde);
+  overflow: hidden;
+}
+
+.barra-tema div {
+  height: 100%;
+  border-radius: 4px;
+  background: var(--rojo);
+}
+
+.fila-tema small {
+  color: var(--texto-suave);
+  font-size: 13px;
+}

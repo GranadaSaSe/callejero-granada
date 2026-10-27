@@ -12,6 +12,7 @@ const VISTAS = {
   ejes: { elemento: 'vista-ejes', cargar: () => import('./vistas/ejes.js') },
   tarjetas: { elemento: 'vista-tarjetas', cargar: () => import('./vistas/tarjetas.js') },
   test: { elemento: 'vista-test', cargar: () => import('./vistas/test.js') },
+  progreso: { elemento: 'vista-progreso', cargar: () => import('./vistas/progreso.js') },
 }
 const abiertas = new Map()
 

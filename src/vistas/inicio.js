@@ -1,4 +1,5 @@
 // Pantalla de inicio: accesos a cada sección y estado de la app en este dispositivo.
+import { diasHasta, leerActividad, leerFechaExamen, racha } from '../actividad.js'
 import { diasDesdeLaUltimaCopia, guardarCopia, hayProgreso, leerCopia, recuperarCopia } from '../copia.js'
 import { crear, rellenar } from '../crear.js'
 import {
@@ -17,6 +18,7 @@ const SECCIONES = [
   { titulo: 'Ejes principales', texto: 'Las grandes vías y sus cruces, en orden', enlace: '#/ejes' },
   { titulo: 'Tarjetas de repaso', texto: 'Lo que fallas vuelve antes', enlace: '#/tarjetas' },
   { titulo: 'Test tipo examen', texto: 'Por temas, con penalización, nota y corrección', enlace: '#/test' },
+  { titulo: 'Tu progreso', texto: 'Cuenta atrás, racha de días y aciertos por tema', enlace: '#/progreso' },
 ]
 
 function fila(texto) {
@@ -190,6 +192,17 @@ function pintarCopia(tarjeta, avisoArriba) {
   )
 }
 
+// Línea de arriba: días que faltan para el examen y racha (se rehace cada vez que se vuelve a Inicio)
+function pintarResumen(enlace) {
+  const quedan = diasHasta(leerFechaExamen().fecha)
+  const { actual, hoy } = racha(leerActividad().dias)
+  rellenar(
+    enlace,
+    crear('span', {}, quedan > 0 ? `Faltan ${quedan.toLocaleString('es-ES')} días para el examen` : 'Revisa la fecha del examen'),
+    crear('span', {}, actual ? `Racha: ${actual} ${actual === 1 ? 'día' : 'días'}${hoy ? ' ✓' : ''}` : 'Sin racha todavía'),
+  )
+}
+
 export function abrir(contenedor) {
   const instalada = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true
   const tarjetaNotas = crear('section', { class: 'tarjeta' })
@@ -204,6 +217,7 @@ export function abrir(contenedor) {
   pintarCopia(tarjetaCopia, avisoCopiaArriba)
   // Las notas también cuentan como progreso: al crear una, puede tocar avisar de la copia
   alCambiarNotas(() => pintarCopia(tarjetaCopia, avisoCopiaArriba))
+  const resumen = crear('a', { class: 'resumen-progreso', href: '#/progreso' })
   const filaInstalada = fila('Instalada en la pantalla de inicio')
   const filaSinInternet = fila('Lista para usarse sin internet')
   const conexion = crear('strong')
@@ -218,6 +232,7 @@ export function abrir(contenedor) {
         crear('img', { class: 'logo', src: `${import.meta.env.BASE_URL}icon.svg`, alt: '', width: 56, height: 56 }),
         crear('div', {}, crear('p', { class: 'etiqueta' }, 'Bomberos de Granada'), crear('h1', {}, 'Callejero Granada')),
       ),
+      resumen,
       avisoCopiaArriba,
       crear(
         'ul',
@@ -273,5 +288,10 @@ export function abrir(contenedor) {
   mostrarConexion()
   window.addEventListener('online', mostrarConexion)
   window.addEventListener('offline', mostrarConexion)
-  return {}
+  return {
+    mostrar() {
+      pintarResumen(resumen)
+      pintarCopia(tarjetaCopia, avisoCopiaArriba)
+    },
+  }
 }
