@@ -1,4 +1,5 @@
-// Mapa de estudio (paso 1.4): calles con su nombre y su sentido, distritos, barrios y lugares de interés.
+// Mapa de estudio (paso 1.4): calles con su nombre y su sentido, distritos, barrios, lugares de interés y,
+// de fondo (paso 2.1), ríos, parques y vías del tren.
 // Se dibuja solo con los datos de la app, así que funciona sin internet. Al tocar una calle o un lugar se
 // abre su ficha, y el buscador lleva a cualquier calle o lugar.
 import {
@@ -169,14 +170,16 @@ const puntosDeNotas = (notas) => ({
   })),
 })
 
-function estilo(base, { tramos, zonas, lugares, nombres, notas }) {
+function estilo(base, { tramos, zonas, fondo, lugares, nombres, notas }) {
   const esNivel = (nivel) => ['==', ['get', 'nivel'], nivel]
+  const esFondo = (...tipos) => ['in', ['get', 'tipo'], ['literal', tipos]]
   return {
     version: 8,
     glyphs: `${base}fuentes/{fontstack}/{range}.pbf`,
     sources: {
       tramos: { type: 'geojson', data: tramos },
       zonas: { type: 'geojson', data: zonas },
+      fondo: { type: 'geojson', data: fondo },
       lugares: { type: 'geojson', data: lugares },
       nombres: { type: 'geojson', data: nombres },
       notas: { type: 'geojson', data: notas },
@@ -192,6 +195,43 @@ function estilo(base, { tramos, zonas, lugares, nombres, notas }) {
           'fill-color': ['match', ['get', 'distrito'], ...Object.entries(COLORES_DISTRITO).flat(), '#dddddd'],
           'fill-opacity': 0.3,
         },
+      },
+      // Fondo (paso 2.1): encima del color de los barrios para que el verde y el agua se vean siempre igual
+      {
+        id: 'fondo-manchas',
+        type: 'fill',
+        source: 'fondo',
+        filter: esFondo('verde', 'cementerio', 'agua'),
+        paint: {
+          'fill-color': ['match', ['get', 'tipo'], 'agua', '#a9d1ee', 'cementerio', '#d3dbc8', '#c3dfa6'],
+          'fill-opacity': 0.9,
+        },
+      },
+      {
+        id: 'fondo-rios',
+        type: 'line',
+        source: 'fondo',
+        filter: esFondo('rio'),
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: {
+          'line-color': '#8cc0e6',
+          'line-width': ['interpolate', ['linear'], ['zoom'], 11, 1.2, 14, 3, 17, 8],
+        },
+      },
+      {
+        id: 'fondo-tren',
+        type: 'line',
+        source: 'fondo',
+        filter: esFondo('tren'),
+        paint: { 'line-color': '#9d948b', 'line-width': ['interpolate', ['linear'], ['zoom'], 12, 1, 16, 3.5] },
+      },
+      {
+        id: 'fondo-tren-traviesas',
+        type: 'line',
+        source: 'fondo',
+        minzoom: 14,
+        filter: esFondo('tren'),
+        paint: { 'line-color': '#ffffff', 'line-width': ['interpolate', ['linear'], ['zoom'], 14, 0.8, 16, 1.6], 'line-dasharray': [3, 3] },
       },
       {
         id: 'calles-borde',
@@ -301,6 +341,23 @@ function estilo(base, { tramos, zonas, lugares, nombres, notas }) {
           'text-rotation-alignment': 'viewport',
         },
         paint: { 'text-color': '#e65100', 'text-halo-color': '#ffffff', 'text-halo-width': 2 },
+      },
+      {
+        id: 'rios-nombres',
+        type: 'symbol',
+        source: 'fondo',
+        minzoom: 12,
+        filter: ['all', esFondo('rio'), ['has', 'nombre']],
+        layout: {
+          'symbol-placement': 'line',
+          'text-field': ['get', 'nombre'],
+          'text-font': ['Noto Sans Regular'],
+          'text-size': ['interpolate', ['linear'], ['zoom'], 12, 11, 17, 14],
+          'text-letter-spacing': 0.1,
+          'text-max-angle': 30,
+          'symbol-spacing': 500,
+        },
+        paint: { 'text-color': '#3a76a6', 'text-halo-color': '#ffffff', 'text-halo-width': 1.5 },
       },
       {
         id: 'nombres-principales',
@@ -425,9 +482,9 @@ export async function abrir(contenedor) {
     ),
   )
 
-  let calles, tramos, zonas, lugares
+  let calles, tramos, zonas, fondo, lugares
   try {
-    ;[calles, tramos, zonas, lugares] = await Promise.all(['calles', 'tramos', 'zonas', 'lugares'].map(cargar))
+    ;[calles, tramos, zonas, fondo, lugares] = await Promise.all(['calles', 'tramos', 'zonas', 'fondo', 'lugares'].map(cargar))
   } catch (error) {
     aviso.textContent = `No se han podido cargar los datos del mapa. Abre la app una vez con internet. (${error.message})`
     return {}
@@ -463,6 +520,7 @@ export async function abrir(contenedor) {
     style: estilo(`${location.origin}${import.meta.env.BASE_URL}`, {
       tramos,
       zonas,
+      fondo,
       lugares: puntosLugares,
       nombres: lineasParaNombres(tramos),
       notas: puntosDeNotas(leerNotas()),
@@ -848,6 +906,7 @@ export async function abrir(contenedor) {
   // Panel de capas: qué se ve en el mapa (se recuerda en este dispositivo)
   const ajustes = {
     zonas: true,
+    fondo: true,
     sentidos: true,
     dudosos: true,
     nombresCalles: true,
@@ -858,10 +917,11 @@ export async function abrir(contenedor) {
   }
   const CAPAS = {
     zonas: ['barrios-relleno', 'barrios-borde', 'distritos-borde', 'barrios-nombres', 'distritos-nombres'],
+    fondo: ['fondo-manchas', 'fondo-rios', 'fondo-tren', 'fondo-tren-traviesas'],
     sentidos: ['flechas'],
     dudosos: ['dudosos', 'dudosos-linea'],
     nombresCalles: ['nombres-principales', 'nombres-resto'],
-    nombresLugares: ['lugares-nombres'],
+    nombresLugares: ['lugares-nombres', 'rios-nombres'],
     notas: ['notas'],
   }
   function aplicarAjustes() {
@@ -889,9 +949,10 @@ export async function abrir(contenedor) {
   panelCapas.append(
     crear('h3', {}, 'Qué ver en el mapa'),
     casillaDe('nombresCalles', 'Nombres de las calles'),
-    casillaDe('nombresLugares', 'Nombres de los lugares'),
+    casillaDe('nombresLugares', 'Nombres de los lugares y ríos'),
     crear('p', { class: 'ayuda-capas' }, 'Quita los nombres para estudiar con un mapa mudo.'),
     casillaDe('zonas', 'Distritos y barrios'),
+    casillaDe('fondo', 'Ríos, parques y vías del tren'),
     casillaDe('sentidos', 'Flechas de sentido'),
     casillaDe('dudosos', 'Sentidos por revisar (?)'),
     casillaDe('notas', 'Notas (mías en rojo, de compañeros en azul)'),

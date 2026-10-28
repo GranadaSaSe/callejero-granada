@@ -1,6 +1,6 @@
 # Informe de datos
 
-Generado el 2026-10-28 con los datos descargados el 2026-10-27. Se vuelve a crear con `npm run datos:procesar`.
+Generado el 2026-10-28 con los datos descargados entre el 2026-10-27 y el 2026-10-28. Se vuelve a crear con `npm run datos:procesar`.
 
 ## Distritos y barrios
 
@@ -80,5 +80,11 @@ Códigos de circulación del CDAU, deducidos comparando cada tramo con OpenStree
 - 72 carreteras con código en el área.
 - 107 salidas de autovía: 99 con número y 99 con destinos.
 - 57 municipios en la zona descargada; falta quedarse solo con los del área metropolitana.
+
+## Fondo del mapa
+
+- Ríos al aire libre: Río Beas, Río Beiro, Río Darro, Río Dílar, Río Genil, Río Monachil.
+- Manchas: verde 584, agua 43, cementerio 3.
+- 28 trozos de vía del tren (solo vías principales al aire libre).
 
 Fuentes: © colaboradores de OpenStreetMap (ODbL) · Callejero Digital de Andalucía Unificado, Junta de Andalucía (CC BY 4.0).

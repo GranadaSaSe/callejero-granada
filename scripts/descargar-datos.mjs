@@ -1,7 +1,8 @@
 // Paso 1.1 del plan: descarga los datos de partida de la app.
 //
 // - OpenStreetMap: límites (municipio, distritos y barrios), calles con su sentido, giros prohibidos,
-//   edificios de interés y carreteras del área metropolitana con sus salidas.
+//   edificios de interés, carreteras del área metropolitana con sus salidas y el fondo del mapa
+//   (ríos, parques, vías del tren).
 // - CDAU (Callejero Digital de Andalucía Unificado): nombres oficiales de las vías, tramos con su
 //   sentido de circulación y portales.
 //
@@ -79,6 +80,19 @@ out qt;`,
 
   municipios: `[out:json][timeout:180][bbox:${AREA_METROPOLITANA}];
 rel["boundary"="administrative"]["admin_level"="8"];
+out geom qt;`,
+
+  // Fondo del mapa (paso 2.1): ríos, agua, parques y zonas verdes, cementerios y vías del tren
+  fondo: `[out:json][timeout:300];
+area(${AREA_GRANADA})->.g;
+(
+  way(area.g)["waterway"~"^(river|stream|canal)$"];
+  nwr(area.g)["natural"="water"];
+  nwr(area.g)["leisure"~"^(park|garden)$"];
+  nwr(area.g)["landuse"~"^(grass|forest|meadow|recreation_ground|village_green|cemetery)$"];
+  nwr(area.g)["natural"="wood"];
+  way(area.g)["railway"="rail"];
+);
 out geom qt;`,
 }
 

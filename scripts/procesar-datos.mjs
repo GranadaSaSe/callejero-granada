@@ -19,6 +19,8 @@ import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { categoria } from './lib/categorias.mjs'
 import {
+  aMetros,
+  anillosDeRelacion,
   centroDeAnillos,
   centroDeRelacion,
   cosenoEntre,
@@ -27,6 +29,7 @@ import {
   distanciaASegmento,
   longitud,
   prepararZona,
+  puntoEnAnillo,
   redondear,
   simplificar,
 } from './lib/geo.mjs'
@@ -50,7 +53,7 @@ const separar = (valor) =>
 // Plaza del Carmen: sin portales, se supone que la calle empieza en el extremo más cercano al centro
 const AYUNTAMIENTO = [-3.5988, 37.1734]
 
-const [limites, callesOsm, edificiosOsm, carreterasOsm, municipiosOsm, viales, tramosCdau, portales] =
+const [limites, callesOsm, edificiosOsm, carreterasOsm, municipiosOsm, fondoOsm, viales, tramosCdau, portales] =
   await Promise.all(
     [
       'osm-limites',
@@ -58,12 +61,16 @@ const [limites, callesOsm, edificiosOsm, carreterasOsm, municipiosOsm, viales, t
       'osm-edificios',
       'osm-carreteras',
       'osm-municipios',
+      'osm-fondo',
       'cdau-viales',
       'cdau-tramos',
       'cdau-portales',
     ].map((n) => leer(`${n}.json`)),
   )
-const fechaDescarga = (await readdir(CRUDOS)).filter((n) => n.startsWith('descarga-')).sort().at(-1)?.slice(9, 19)
+// Se puede descargar solo una parte (`npm run datos:descargar -- fondo`): entonces hay varias fechas
+const fechasDescarga = (await readdir(CRUDOS)).filter((n) => n.startsWith('descarga-')).sort().map((n) => n.slice(9, 19))
+const fechaDescarga =
+  fechasDescarga.length > 1 ? `entre el ${fechasDescarga[0]} y el ${fechasDescarga.at(-1)}` : `el ${fechasDescarga[0]}`
 // Decisiones tomadas a mano en el mapa de revisión (paso 1.3): mandan sobre el CDAU y OpenStreetMap
 const revisiones = await readFile(join(RAIZ, 'datos', 'revisiones.json'), 'utf8')
   .then(JSON.parse)
@@ -772,14 +779,64 @@ await guardar(
   coleccion(municipios.map((m) => ({ type: 'Feature', properties: { nombre: m.nombre }, geometry: poligono(m, 20) }))),
 )
 
-// 7. Informe con las cifras y lo que queda por revisar
+// 7. Fondo del mapa (OpenStreetMap): ríos, agua, zonas verdes, cementerios y vías del tren.
+// Se quitan las manchas pequeñas (jardines de casas, fuentes) para que el mapa no se llene de ruido.
+const superficie = (anillo) => {
+  let doble = 0
+  const p = anillo.map(aMetros)
+  for (let i = 0, j = p.length - 1; i < p.length; j = i++) doble += p[j][0] * p[i][1] - p[i][0] * p[j][1]
+  return Math.abs(doble / 2)
+}
+const tipoDeFondo = (t) =>
+  t.landuse === 'cemetery'
+    ? 'cementerio'
+    : t.natural === 'water'
+      ? 'agua'
+      : t.leisure || /^(grass|forest|meadow|recreation_ground|village_green)$/.test(t.landuse) || t.natural === 'wood'
+        ? 'verde'
+        : null
+// Superficie mínima en m² para dibujar una mancha sin nombre (los jardines suelen ser de casas particulares)
+const MINIMO_FONDO = { garden: 2000, park: 300, agua: 500, otro: 1000 }
+const fondo = []
+for (const e of fondoOsm.elements) {
+  const t = e.tags ?? {}
+  const tunel = t.tunnel || t.covered === 'yes'
+  if (t.railway === 'rail') {
+    // Solo las vías principales y al aire libre: sin apartaderos, playas de vías ni túneles
+    if (t.service || tunel || e.type !== 'way') continue
+    fondo.push({ type: 'Feature', properties: { tipo: 'tren' }, geometry: { type: 'LineString', coordinates: redondear(simplificar(e.geometry.map((p) => [p.lon, p.lat]), 3)) } })
+    continue
+  }
+  if (t.waterway) {
+    // Los ríos al aire libre (el Darro y el Beiro van soterrados en parte); sin barrancos ni acequias
+    if (tunel || e.type !== 'way' || !(t.waterway === 'river' || /^Río /.test(t.name ?? ''))) continue
+    fondo.push({ type: 'Feature', properties: { tipo: 'rio', nombre: t.name ?? null }, geometry: { type: 'LineString', coordinates: redondear(simplificar(e.geometry.map((p) => [p.lon, p.lat]), 3)) } })
+    continue
+  }
+  const tipo = tipoDeFondo(t)
+  if (!tipo) continue
+  const exteriores = e.type === 'way' ? [e.geometry.map((p) => [p.lon, p.lat])] : anillosDeRelacion(e, 'outer')
+  const interiores = e.type === 'way' ? [] : anillosDeRelacion(e, 'inner')
+  const minimo = t.name && tipo !== 'agua' ? 0 : MINIMO_FONDO[tipo === 'agua' ? 'agua' : t.leisure] ?? MINIMO_FONDO.otro
+  const poligonos = exteriores
+    .filter((anillo) => anillo.length >= 4 && superficie(anillo) >= minimo)
+    .map((anillo) => [anillo, ...interiores.filter((h) => puntoEnAnillo(h[0], anillo))].map((a) => redondear(simplificar(a, 2))))
+  if (!poligonos.length) continue
+  fondo.push({ type: 'Feature', properties: { tipo }, geometry: { type: 'MultiPolygon', coordinates: poligonos } })
+}
+// Primero el verde y encima el agua (un estanque dentro de un parque se ve)
+const ORDEN_FONDO = ['verde', 'cementerio', 'agua', 'rio', 'tren']
+fondo.sort((a, b) => ORDEN_FONDO.indexOf(a.properties.tipo) - ORDEN_FONDO.indexOf(b.properties.tipo))
+await guardar('fondo.json', coleccion(fondo))
+
+// 8. Informe con las cifras y lo que queda por revisar
 const contar = contarValores
 const miles = (n) => n.toLocaleString('es-ES')
 const porFuente = contar(tramos.map((t) => (t.cdau ? 'callejero oficial (CDAU)' : t.osm ? 'OpenStreetMap' : 'sin dato')))
 const lineasInforme = [
   '# Informe de datos',
   '',
-  `Generado el ${new Date().toISOString().slice(0, 10)} con los datos descargados el ${fechaDescarga}. Se vuelve a crear con \`npm run datos:procesar\`.`,
+  `Generado el ${new Date().toISOString().slice(0, 10)} con los datos descargados ${fechaDescarga}. Se vuelve a crear con \`npm run datos:procesar\`.`,
   '',
   '## Distritos y barrios',
   '',
@@ -840,6 +897,12 @@ const lineasInforme = [
   `- ${unicos(carreteras.map((c) => c.properties.codigo)).length} carreteras con código en el área.`,
   `- ${salidas.length} salidas de autovía: ${salidas.filter((s) => s.numero).length} con número y ${salidas.filter((s) => s.destinos.length).length} con destinos.`,
   `- ${municipios.length} municipios en la zona descargada; falta quedarse solo con los del área metropolitana.`,
+  '',
+  '## Fondo del mapa',
+  '',
+  `- Ríos al aire libre: ${unicos(fondo.filter((f) => f.properties.tipo === 'rio').map((f) => f.properties.nombre ?? 'sin nombre')).sort((a, b) => a.localeCompare(b, 'es')).join(', ')}.`,
+  `- Manchas: ${contar(fondo.filter((f) => f.geometry.type === 'MultiPolygon').map((f) => f.properties.tipo)).map(([t, n]) => `${t} ${miles(n)}`).join(', ')}.`,
+  `- ${fondo.filter((f) => f.properties.tipo === 'tren').length} trozos de vía del tren (solo vías principales al aire libre).`,
   '',
   'Fuentes: © colaboradores de OpenStreetMap (ODbL) · Callejero Digital de Andalucía Unificado, Junta de Andalucía (CC BY 4.0).',
   '',
