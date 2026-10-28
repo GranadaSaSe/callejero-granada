@@ -9,6 +9,7 @@ if ('serviceWorker' in navigator) registerSW({ immediate: true })
 const VISTAS = {
   inicio: { elemento: 'vista-inicio', cargar: () => import('./vistas/inicio.js') },
   mapa: { elemento: 'vista-mapa', cargar: () => import('./vistas/mapa.js') },
+  jugar: { elemento: 'vista-jugar', cargar: () => import('./vistas/jugar.js') },
   ejes: { elemento: 'vista-ejes', cargar: () => import('./vistas/ejes.js') },
   tarjetas: { elemento: 'vista-tarjetas', cargar: () => import('./vistas/tarjetas.js') },
   test: { elemento: 'vista-test', cargar: () => import('./vistas/test.js') },
