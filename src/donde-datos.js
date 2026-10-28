@@ -115,11 +115,11 @@ export function candidatas({ calles, tramos, lugares }, { tipo, zona }) {
 }
 
 // Elige "cuantas" preguntas sin repetir. Lo que se falló la última vez sale con el triple de probabilidad.
-// "historial" = { id: { bien, total, ultima } } (ultima = metros de la última vez)
-export function elegir(lista, cuantas, historial = {}, azar = Math.random) {
+// Lo usan todos los juegos de la pestaña Jugar; cada uno dice qué es haberlo fallado.
+export function elegir(lista, cuantas, falladoLaUltimaVez = () => false, azar = Math.random) {
   return lista
     .map((sitio) => {
-      const peso = historial[sitio.id]?.ultima > ACIERTO_METROS ? 3 : 1
+      const peso = falladoLaUltimaVez(sitio) ? 3 : 1
       return { sitio, clave: azar() ** (1 / peso) }
     })
     .sort((a, b) => b.clave - a.clave)
