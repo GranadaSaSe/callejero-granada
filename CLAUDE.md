@@ -14,7 +14,7 @@ App web instalable (PWA) para preparar la prueba de callejero de la oposición d
 
 - Paso 0 terminado salvo el 0.8: "Hola Granada" publicada en https://granadasase.github.io/callejero-granada/ e instalada y probada en modo avión en Android e iPhone. El material de estudio irá a `material/` (no se sube a GitHub).
 - Se trabaja en la rama `fase1-datos` (se une a `main` cuando la app tenga algo nuevo que enseñar). Fase 1 hecha salvo el 1.3 (versión 0.9.0 publicada en `main` el 28-10-2026). Paso 1.3: el mapa de revisión está hecho y la persona va revisando los tramos dudosos poco a poco (234 aplicados, quedan 1.204; las notas de compañeros sobre sentidos se aplican también en `datos/revisiones.json`). Antes de publicar, mirar si `datos/revisiones.json` tiene decisiones nuevas y aplicarlas.
-- Fase 2 en curso: 2.1 hecho (ríos, parques y vías del tren; versión 0.10.0 publicada en `main` el 28-10-2026). 2.2 "¿Dónde está?" hecho el 28-10-2026, sin publicar todavía. Siguiente: 2.3 "¿Qué calle es?" (mapa mudo al revés), que va en la misma pestaña Jugar.
+- Fase 2 en curso: 2.1 hecho (ríos, parques y vías del tren; versión 0.10.0 publicada en `main` el 28-10-2026). 2.2 "¿Dónde está?" hecho (versión 0.11.0 publicada en `main` el 28-10-2026). Siguiente: 2.3 "¿Qué calle es?" (mapa mudo al revés), que va en la misma pestaña Jugar.
 
 ## App
 
