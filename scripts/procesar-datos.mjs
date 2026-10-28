@@ -483,6 +483,7 @@ function recorrido(via) {
     const puntos = t.sentido === 'inverso' ? [...t.linea].reverse() : t.linea
     for (let i = 1; i < puntos.length; i++) {
       const [a, b] = [puntos[i - 1], puntos[i]]
+      if (distancia(a, b) < 0.1) continue // punto repetido: no tiene dirección
       const muestras = Math.max(1, Math.round(distancia(a, b) / 10)) // un punto cada 10 m
       for (let m = 0; m < muestras; m++) {
         const f = (m + 0.5) / muestras
