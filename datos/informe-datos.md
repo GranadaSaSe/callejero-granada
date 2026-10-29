@@ -1,6 +1,6 @@
 # Informe de datos
 
-Generado el 2026-10-28 con los datos descargados entre el 2026-10-27 y el 2026-10-28. Se vuelve a crear con `npm run datos:procesar`.
+Generado el 2026-10-29 con los datos descargados entre el 2026-10-27 y el 2026-10-29. Se vuelve a crear con `npm run datos:procesar`.
 
 ## Distritos y barrios
 
@@ -22,20 +22,20 @@ Generado el 2026-10-28 con los datos descargados entre el 2026-10-27 y el 2026-1
 - 2495 calles con nombre oficial (CDAU); 231 vías sin nombre aparte.
 - 9401 tramos; 0 sin calle asignada.
 - Sentido de circulación según: callejero oficial (CDAU) 6739, OpenStreetMap 2535, sin dato 127.
-- 234 tramos ya revisados a mano en el mapa de revisión.
-- **1204 tramos dudosos**: el CDAU y OpenStreetMap dicen cosas distintas. Hay que revisarlos (paso 1.3).
+- 238 tramos ya revisados a mano en el mapa de revisión.
+- **1200 tramos dudosos**: el CDAU y OpenStreetMap dicen cosas distintas. Hay que revisarlos (paso 1.3).
 
 | CDAU dice | OpenStreetMap dice | Tramos dudosos |
 | --- | --- | --- |
 | doble sentido | peatonal | 346 |
-| doble sentido | sentido único | 310 |
+| doble sentido | sentido único | 308 |
 | peatonal | doble sentido | 148 |
-| sentido único | doble sentido | 145 |
+| sentido único | doble sentido | 143 |
 | sentido único | peatonal | 104 |
 | sentido único | sentido único, pero al revés | 102 |
 | peatonal | sentido único | 49 |
 
-- Sentido de las calles: doble 826, mixto 561, peatonal 550, hacia el final 282, hacia el inicio 260, desconocido 16.
+- Sentido de las calles: doble 826, mixto 560, peatonal 550, hacia el final 282, hacia el inicio 261, desconocido 16.
 - 133 calles están en varios trozos separados (se estudia el más largo).
 - 285 calles no tienen otra calle en alguno de sus extremos (sin salida, o terminan en un camino sin nombre).
 
@@ -77,9 +77,11 @@ Códigos de circulación del CDAU, deducidos comparando cada tramo con OpenStree
 
 ## Carreteras y salidas
 
-- 72 carreteras con código en el área.
-- 107 salidas de autovía: 99 con número y 99 con destinos.
-- 57 municipios en la zona descargada; falta quedarse solo con los del área metropolitana.
+Zona de los parques de bomberos de Granada (detalle en `datos/informe-zona.md`):
+
+- 53 municipios; 52 con el camino desde Granada calculado.
+- 96 carreteras con código.
+- 70 salidas de autovía: 67 con número y 66 con destinos.
 
 ## Fondo del mapa
 

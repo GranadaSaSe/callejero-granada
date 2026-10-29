@@ -5,13 +5,14 @@
 //   calles.json      cada calle oficial: tipo, distrito, barrios, inicio, fin, cruces, sentido y números
 //   tramos.json      cada tramo de calle con su línea y su sentido de circulación
 //   lugares.json     edificios y lugares de interés con su dirección, distrito y barrio
-//   carreteras.json  carreteras del área metropolitana
-//   salidas.json     salidas de autovía con sus destinos
-//   municipios.json  municipios de alrededor
+//   carreteras.json  carreteras con código de la zona de los parques de Granada
+//   salidas.json     salidas de autovía de esa zona con sus destinos en cada sentido
+//   municipios.json  municipios de esa zona con su pueblo principal, vecinos y cómo se llega desde Granada
 //
 // Los nombres y los tramos de las calles salen del callejero oficial (CDAU). El sentido de circulación
 // sale del CDAU y, donde no lo trae, de OpenStreetMap; si los dos no coinciden, el tramo queda marcado
-// como dudoso para revisarlo. Escribe además datos/informe-datos.md con las cifras.
+// como dudoso para revisarlo. Escribe además datos/informe-datos.md con las cifras y datos/informe-zona.md
+// con las salidas y los accesos de la zona de los parques de Granada.
 //
 // Uso: `npm run datos:procesar` (después de `npm run datos:descargar`).
 
@@ -34,6 +35,8 @@ import {
   simplificar,
 } from './lib/geo.mjs'
 import { clavesNombre, normalizar } from './lib/nombres.mjs'
+import { accesosDesdeGranada, codigos, municipiosDeLaZona, salidasDeLaZona, textoAcceso } from './lib/zona-datos.mjs'
+import { ZONA_PARQUES } from './lib/zona-parques.mjs'
 
 const RAIZ = join(import.meta.dirname, '..')
 const CRUDOS = join(RAIZ, 'datos', 'crudos')
@@ -728,56 +731,112 @@ for (const e of edificiosOsm.elements) {
 lugares.sort((a, b) => a.categoria.localeCompare(b.categoria, 'es') || a.nombre.localeCompare(b.nombre, 'es'))
 await guardar('lugares.json', lugares)
 
-// 6. Carreteras del área metropolitana y salidas de autovía (OpenStreetMap)
-const municipios = municipiosOsm.elements.filter((e) => e.type === 'relation').map(prepararZona)
-const codigos = (tags) => {
-  const todos = separar(tags.ref)
-  const nacionales = todos.filter((r) => !r.startsWith('E-'))
-  return nacionales.length ? nacionales : todos
-}
-const caminos = carreterasOsm.elements.filter((e) => e.type === 'way')
-const carreteras = caminos
-  .filter((w) => !w.tags.highway.endsWith('_link') && w.tags.ref)
-  .map((w) => ({
-    type: 'Feature',
-    properties: { codigo: codigos(w.tags).join(' / '), nombre: w.tags.name ?? null, tipo: w.tags.highway },
-    geometry: { type: 'LineString', coordinates: redondear(simplificar(w.geometry.map((p) => [p.lon, p.lat]), 5)) },
-  }))
-await guardar('carreteras.json', coleccion(carreteras))
-
-const autoviaDeNodo = new Map()
-for (const w of caminos) {
-  if (/^(motorway|trunk)$/.test(w.tags.highway) && w.tags.ref) for (const n of w.nodes) autoviaDeNodo.set(n, w)
-}
-const ramalesDesde = new Map()
-for (const w of caminos) {
-  if (!w.tags.highway.endsWith('_link')) continue
-  if (!ramalesDesde.has(w.nodes[0])) ramalesDesde.set(w.nodes[0], [])
-  ramalesDesde.get(w.nodes[0]).push(w)
-}
-const salidas = carreterasOsm.elements
-  .filter((e) => e.type === 'node')
-  .map((n) => {
-    const punto = [n.lon, n.lat]
-    const ramales = ramalesDesde.get(n.id) ?? []
-    const autovia = autoviaDeNodo.get(n.id)
+// 6. Zona de los parques de bomberos de Granada (paso 2.5): sus 53 municipios, las carreteras con código
+// que pasan por ella, las salidas de autovía y cómo se llega a cada pueblo desde Granada (OpenStreetMap).
+// Qué municipios entran está en scripts/lib/zona-parques.mjs; los cálculos, en scripts/lib/zona-datos.mjs.
+const { municipios, faltan: municipiosQueFaltan } = municipiosDeLaZona(municipiosOsm.elements)
+const enLaZona = (p) => municipios.some((m) => m.zona.contiene(p))
+// Red de cada carretera: autovía, nacional (N-), autonómica (A-) o provincial (GR-)
+const redDe = (codigo, tipo) =>
+  tipo === 'motorway' ? 'autovia' : codigo.startsWith('N-') ? 'nacional' : codigo.startsWith('GR-') ? 'provincial' : 'autonomica'
+const carreteras = carreterasOsm.elements
+  .filter((w) => w.type === 'way' && w.tags.ref && !w.tags.highway.endsWith('_link'))
+  .filter((w) => w.geometry.some((p, i) => i % 3 === 0 && enLaZona([p.lon, p.lat])))
+  .map((w) => {
+    const codigo = codigos(w.tags).join(' / ')
     return {
-      id: n.id,
-      carretera: autovia ? codigos(autovia.tags).join(' / ') : null,
-      numero: n.tags.ref ?? null,
-      nombre: n.tags.name ?? null,
-      destinos: unicos([...separar(n.tags.exit_to), ...ramales.flatMap((r) => separar(r.tags.destination))]),
-      carreterasDestino: unicos(ramales.flatMap((r) => separar(r.tags['destination:ref']))),
-      municipio: municipios.find((m) => m.contiene(punto))?.nombre ?? null,
-      punto: redondear([punto])[0],
+      type: 'Feature',
+      properties: { codigo, nombre: w.tags.name ?? null, tipo: w.tags.highway, red: redDe(codigo, w.tags.highway) },
+      geometry: { type: 'LineString', coordinates: redondear(simplificar(w.geometry.map((p) => [p.lon, p.lat]), 8)) },
     }
   })
-  .sort((a, b) => (a.carretera ?? '').localeCompare(b.carretera ?? '') || Number(a.numero) - Number(b.numero))
-await guardar('salidas.json', salidas)
+await guardar('carreteras.json', coleccion(carreteras))
+
+const salidas = salidasDeLaZona(carreterasOsm.elements, municipios)
+const accesos = accesosDesdeGranada(carreterasOsm.elements, municipios, salidas)
+await guardar(
+  'salidas.json',
+  salidas.map(({ nodos, sentidos, punto, ...s }) => ({
+    ...s,
+    sentidos: sentidos.map(({ nodo, ...x }) => x),
+    punto: redondear([punto])[0],
+  })),
+)
 await guardar(
   'municipios.json',
-  coleccion(municipios.map((m) => ({ type: 'Feature', properties: { nombre: m.nombre }, geometry: poligono(m, 20) }))),
+  coleccion(
+    municipios.map((m) => ({
+      type: 'Feature',
+      properties: {
+        nombre: m.nombre,
+        parte: m.parte,
+        pueblo: m.pueblo,
+        vecinos: m.vecinos,
+        centro: redondear([m.centro])[0],
+        acceso: accesos[m.nombre] ?? null,
+      },
+      geometry: poligono(m.zona, 20),
+    })),
+  ),
 )
+
+// Informe para revisar la zona con el material oficial: salidas de cada autovía y cómo se llega a cada pueblo
+const lineasZona = [
+  '# Zona de los parques de Granada: pueblos, salidas y accesos',
+  '',
+  `Generado por \`npm run datos:procesar\` con los datos de OpenStreetMap descargados ${fechaDescarga}. Qué municipios entran sale del plano de carreteras de la provincia (diciembre de 2013) guardado en \`material/\`; las salidas y los accesos, de OpenStreetMap. Si algo no coincide con el material oficial, manda el material oficial.`,
+  '',
+  ...(municipiosQueFaltan.length ? [`**Faltan en OpenStreetMap:** ${municipiosQueFaltan.join(', ')}.`, ''] : []),
+  '## Municipios',
+  '',
+  '| Parte | Municipio | Pueblo principal | Limita con |',
+  '| --- | --- | --- | --- |',
+  ...Object.entries(ZONA_PARQUES).flatMap(([parte, nombres]) =>
+    nombres.map((n) => {
+      const m = municipios.find((x) => x.nombre === n)
+      return `| ${parte} | ${n} | ${m?.pueblo ?? ''} | ${m?.vecinos.join(', ') ?? 'no encontrado'} |`
+    }),
+  ),
+  '',
+  '## Salidas de autovía',
+  '',
+  'Destinos según los carteles que hay en OpenStreetMap, en cada sentido. Las autovías se recorren hacia donde crecen los números de salida (los kilómetros) o al revés.',
+  '',
+  ...unicos(salidas.map((s) => s.carretera)).flatMap((carretera) => [
+    `### ${carretera}`,
+    '',
+    '| Salida | Municipio | Destinos |',
+    '| --- | --- | --- |',
+    ...salidas
+      .filter((s) => s.carretera === carretera)
+      .map((s) => {
+        const porSentido = s.sentidos.length
+          ? unicos(s.sentidos.map((x) => `${x.hacia ? `hacia ${x.hacia}: ` : ''}${x.destinos.join(', ')}`)).join('<br>')
+          : '**sin destinos**'
+        return `| ${s.numero ?? '**sin número**'} | ${s.municipio} | ${porSentido} |`
+      }),
+    '',
+  ]),
+  '## Cómo se llega desde Granada',
+  '',
+  'Camino más rápido desde el centro de Granada por la red de carreteras, calculado con OpenStreetMap: carreteras con código por las que se va y salidas que se cogen. Es una forma de llegar, no la única.',
+  '',
+  '| Parte | Pueblo | Cómo se llega | Minutos |',
+  '| --- | --- | --- | --- |',
+  ...Object.entries(ZONA_PARQUES).flatMap(([parte, nombres]) =>
+    nombres
+      .filter((n) => n !== 'Granada')
+      .map((n) => {
+        const m = municipios.find((x) => x.nombre === n)
+        const nombre = m?.pueblo ? `${n} (${m.pueblo})` : n
+        return `| ${parte} | ${nombre} | ${accesos[n] ? textoAcceso(accesos[n]) : '**sin calcular**'} | ${accesos[n]?.minutos ?? ''} |`
+      }),
+  ),
+  '',
+  'Fuente: © colaboradores de OpenStreetMap (ODbL).',
+  '',
+]
+await writeFile(join(RAIZ, 'datos', 'informe-zona.md'), lineasZona.join('\n'))
 
 // 7. Fondo del mapa (OpenStreetMap): ríos, agua, zonas verdes, cementerios y vías del tren.
 // Se quitan las manchas pequeñas (jardines de casas, fuentes) para que el mapa no se llene de ruido.
@@ -894,9 +953,11 @@ const lineasInforme = [
   '',
   '## Carreteras y salidas',
   '',
-  `- ${unicos(carreteras.map((c) => c.properties.codigo)).length} carreteras con código en el área.`,
+  `Zona de los parques de bomberos de Granada (detalle en \`datos/informe-zona.md\`):`,
+  '',
+  `- ${municipios.length} municipios${municipiosQueFaltan.length ? ` (faltan en OpenStreetMap: ${municipiosQueFaltan.join(', ')})` : ''}; ${Object.values(accesos).filter(Boolean).length} con el camino desde Granada calculado.`,
+  `- ${unicos(carreteras.map((c) => c.properties.codigo)).length} carreteras con código.`,
   `- ${salidas.length} salidas de autovía: ${salidas.filter((s) => s.numero).length} con número y ${salidas.filter((s) => s.destinos.length).length} con destinos.`,
-  `- ${municipios.length} municipios en la zona descargada; falta quedarse solo con los del área metropolitana.`,
   '',
   '## Fondo del mapa',
   '',

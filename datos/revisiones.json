@@ -60,6 +60,11 @@
    "eleccion": "osm",
    "fecha": "2026-10-27T19:11:31.428Z"
   },
+  "292000854": {
+   "sentido": "doble",
+   "eleccion": "osm",
+   "fecha": "2026-10-29T10:14:36.877Z"
+  },
   "292000910": {
    "sentido": "inverso",
    "eleccion": "osm",
@@ -279,6 +284,11 @@
    "sentido": "doble",
    "eleccion": "osm",
    "fecha": "2026-10-27T19:07:31.958Z"
+  },
+  "292002879": {
+   "sentido": "directo",
+   "eleccion": "oficial",
+   "fecha": "2026-10-29T10:17:41.538Z"
   },
   "292002919": {
    "sentido": "directo",
@@ -545,6 +555,11 @@
    "eleccion": "oficial",
    "fecha": "2026-10-27T19:22:40.372Z"
   },
+  "292008034": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-29T10:14:32.763Z"
+  },
   "292008060": {
    "sentido": "doble",
    "eleccion": "oficial",
@@ -609,6 +624,11 @@
    "sentido": "doble",
    "eleccion": "oficial",
    "fecha": "2026-10-27T19:35:33.637Z"
+  },
+  "292008639": {
+   "sentido": "inverso",
+   "eleccion": "osm",
+   "fecha": "2026-10-29T10:15:48.008Z"
   },
   "292009193": {
    "sentido": "directo",
@@ -1085,6 +1105,16 @@
    "eleccion": "osm",
    "fecha": "2026-10-27T19:21:17.898Z"
   },
+  "292012548": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-29T10:18:25.490Z"
+  },
+  "292012549": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-10-29T10:18:27.776Z"
+  },
   "292012550": {
    "sentido": "doble",
    "eleccion": "oficial",
@@ -1169,6 +1199,11 @@
    "sentido": "inverso",
    "eleccion": "osm",
    "fecha": "2026-10-27T19:21:05.033Z"
+  },
+  "292012697": {
+   "sentido": "inverso",
+   "eleccion": "osm",
+   "fecha": "2026-10-29T10:18:19.934Z"
   }
  }
 }

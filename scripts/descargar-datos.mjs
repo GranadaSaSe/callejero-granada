@@ -1,7 +1,8 @@
 // Paso 1.1 del plan: descarga los datos de partida de la app.
 //
 // - OpenStreetMap: límites (municipio, distritos y barrios), calles con su sentido, giros prohibidos,
-//   edificios de interés, carreteras del área metropolitana con sus salidas y el fondo del mapa
+//   edificios de interés, carreteras de la zona de los parques de Granada con sus salidas, los municipios
+//   de esa zona y el fondo del mapa
 //   (ríos, parques, vías del tren).
 // - CDAU (Callejero Digital de Andalucía Unificado): nombres oficiales de las vías, tramos con su
 //   sentido de circulación y portales.
@@ -11,6 +12,7 @@
 
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { RECTANGULO_ZONA } from './lib/zona-parques.mjs'
 
 const CARPETA = join(import.meta.dirname, '..', 'datos', 'crudos')
 const AGENTE = 'callejero-granada-estudio/0.1 (github.com/GranadaSaSe/callejero-granada)'
@@ -25,8 +27,6 @@ const WFS_CDAU = 'https://www.callejerodeandalucia.es/servicios/cdau/wfs'
 const RELACION_GRANADA = 344685 // término municipal de Granada en OpenStreetMap
 const AREA_GRANADA = 3600000000 + RELACION_GRANADA
 const INE_GRANADA = '18087'
-// Rectángulo que cubre el área metropolitana: sur, oeste, norte, este
-const AREA_METROPOLITANA = '37.00,-3.85,37.32,-3.45'
 
 const VIAS_CON_COCHE =
   'motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|' +
@@ -69,18 +69,23 @@ area(${AREA_GRANADA})->.g;
 );
 out center tags qt;`,
 
-  carreteras: `[out:json][timeout:300][bbox:${AREA_METROPOLITANA}];
+  // Carreteras y salidas de autovía de la zona de los parques de Granada (paso 2.5). Las vías sin código
+  // (tertiary) sirven para unir las carreteras al calcular cómo se llega a cada pueblo.
+  carreteras: `[out:json][timeout:300][bbox:${RECTANGULO_ZONA}];
 (
-  way["highway"~"^(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link)$"];
-  way["highway"="tertiary"]["ref"];
+  way["highway"~"^(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link)$"];
+  way["highway"="unclassified"]["ref"];
 );
 out geom qt;
 node["highway"="motorway_junction"];
 out qt;`,
 
-  municipios: `[out:json][timeout:180][bbox:${AREA_METROPOLITANA}];
-rel["boundary"="administrative"]["admin_level"="8"];
-out geom qt;`,
+  // Municipios con su pueblo principal (admin_centre), que a veces se llama distinto (Las Gabias: Gabia Grande)
+  municipios: `[out:json][timeout:180][bbox:${RECTANGULO_ZONA}];
+rel["boundary"="administrative"]["admin_level"="8"]->.m;
+.m out geom qt;
+node(r.m:"admin_centre");
+out qt;`,
 
   // Fondo del mapa (paso 2.1): ríos, agua, parques y zonas verdes, cementerios y vías del tren
   fondo: `[out:json][timeout:300];
