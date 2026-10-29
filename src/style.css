@@ -588,6 +588,63 @@ li[data-ok='si'] .estado {
   border-style: dashed;
 }
 
+/* Zona de los parques (paso 2.5): carreteras con el borde de su color y salidas en oscuro */
+.chip-carretera {
+  border-width: 2px;
+  font-weight: 700;
+}
+
+.chip-salida {
+  border-color: #263238;
+  font-weight: 700;
+}
+
+.pasos-acceso {
+  margin: 6px 0;
+  padding-left: 22px;
+}
+
+.pasos-acceso li {
+  margin-bottom: 6px;
+}
+
+.pasos-acceso li > * {
+  margin-right: 6px;
+}
+
+.lista-salidas {
+  margin: 6px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lista-salidas li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 14px;
+}
+
+.leyenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 4px 0 8px 26px;
+  color: var(--texto-suave);
+  font-size: 13px;
+}
+
+.leyenda > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.boton-zona {
+  margin: 0 0 6px 26px;
+}
+
 /* Ejes principales */
 
 .intro {

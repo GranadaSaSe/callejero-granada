@@ -76,11 +76,15 @@ export const juegoSentidos = {
   },
 }
 
-// Botón de una respuesta: el dibujo (la flecha, girada como en el mapa) y el texto
+// Botón de una respuesta: el dibujo (la flecha, girada como se ve en el mapa) y el texto
 function botonOpcion(opcion, responder) {
-  const icono = crear('span', { 'aria-hidden': 'true' }, ICONOS[opcion.id] ?? '→')
-  if (opcion.grados !== undefined) icono.style.transform = `rotate(${opcion.grados}deg)`
+  const icono = crear('span', { 'aria-hidden': 'true', 'data-grados': opcion.grados }, ICONOS[opcion.id] ?? '→')
   return crear('button', { class: 'opcion-examen opcion-sentido', onclick: () => responder(opcion) }, crear('span', { class: 'letra' }, icono), opcion.texto)
+}
+
+// Gira las flechas de los botones según lo girado que esté el mapa
+function girarFlechas(contenedor, giro) {
+  for (const icono of contenedor.querySelectorAll('[data-grados]')) icono.style.transform = `rotate(${Number(icono.dataset.grados) - giro}deg)`
 }
 
 async function partida(ctx, lista) {
@@ -91,7 +95,7 @@ async function partida(ctx, lista) {
   let opciones = []
   let respondida = false
 
-  // Teclado: 1-4 para elegir y Intro para pasar a la siguiente
+  // Teclado: 1-4 para elegir y Intro para pasar a la siguiente. Si se gira el mapa, giran las flechas.
   await ctx.abrirMapa({
     tecla(e) {
       if (!respondida && /^[1-4]$/.test(e.key)) responder(opciones[Number(e.key) - 1])
@@ -100,6 +104,7 @@ async function partida(ctx, lista) {
         siguiente()
       }
     },
+    girar: (giro) => girarFlechas(abajo, giro),
   })
 
   const aciertos = () => resultados.filter((r) => r.acierto).length
@@ -124,8 +129,9 @@ async function partida(ctx, lista) {
     )
     // Sin flechas hasta contestar
     ctx.ponerDatos('juego-respuesta', coleccion([...trozo.lineas.map((l) => linea(l.linea, { nombre: '', color: AZUL })), ...extremos()]))
-    opciones = opcionesSentido(trozo)
+    opciones = opcionesSentido(trozo, ctx.giro())
     rellenar(abajo, crear('div', { class: 'opciones-examen' }, opciones.map((o) => botonOpcion(o, responder))))
+    girarFlechas(abajo, ctx.giro())
     encuadrar()
   }
 

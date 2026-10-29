@@ -1,7 +1,8 @@
 // Mapa de estudio (paso 1.4): calles con su nombre y su sentido, distritos, barrios, lugares de interés y,
-// de fondo (paso 2.1), ríos, parques y vías del tren.
-// Se dibuja solo con los datos de la app, así que funciona sin internet. Al tocar una calle o un lugar se
-// abre su ficha, y el buscador lleva a cualquier calle o lugar.
+// de fondo (paso 2.1), ríos, parques y vías del tren. Además, la zona de los parques de Granada (paso 2.5):
+// sus pueblos, carreteras y salidas de autovía.
+// Se dibuja solo con los datos de la app, así que funciona sin internet. Al tocar una calle, un lugar, un
+// pueblo, una carretera o una salida se abre su ficha, y el buscador lleva a cualquiera de ellos.
 import { LngLatBounds } from 'maplibre-gl'
 import { crear, miles, normalizar } from '../crear.js'
 import { cargar, GRUPOS, grupoDe } from '../datos.js'
@@ -15,7 +16,7 @@ import {
   leerNotas,
   TIPOS,
 } from '../notas.js'
-import { crearMapa, lineasParaNombres, NADA } from '../mapa-base.js'
+import { crearMapa, filtroCarretera, lineasParaNombres, NADA, puntosDePueblos, puntosDeSalidas, REDES } from '../mapa-base.js'
 
 const CLAVE_AJUSTES = 'callejero-mapa-capas'
 const PALABRAS_SENTIDO = { unico: 'sentido único', doble: 'doble sentido', peatonal: 'peatonal' }
@@ -51,9 +52,9 @@ export async function abrir(contenedor) {
   const lienzo = crear('div', { class: 'mapa-lienzo' })
   const buscador = crear('input', {
     type: 'search',
-    placeholder: 'Buscar calle o lugar',
+    placeholder: 'Buscar calle, lugar, pueblo o carretera',
     autocomplete: 'off',
-    'aria-label': 'Buscar calle o lugar',
+    'aria-label': 'Buscar calle, lugar, pueblo o carretera',
   })
   const resultados = crear('ul', { class: 'resultados', hidden: true })
   const botonCapas = crear('button', { class: 'boton-flotante', 'aria-expanded': 'false' }, 'Capas')
@@ -77,9 +78,11 @@ export async function abrir(contenedor) {
     ),
   )
 
-  let calles, tramos, zonas, fondo, lugares
+  let calles, tramos, zonas, fondo, lugares, municipios, carreteras, salidas
   try {
-    ;[calles, tramos, zonas, fondo, lugares] = await Promise.all(['calles', 'tramos', 'zonas', 'fondo', 'lugares'].map(cargar))
+    ;[calles, tramos, zonas, fondo, lugares, municipios, carreteras, salidas] = await Promise.all(
+      ['calles', 'tramos', 'zonas', 'fondo', 'lugares', 'municipios', 'carreteras', 'salidas'].map(cargar),
+    )
   } catch (error) {
     aviso.textContent = `No se han podido cargar los datos del mapa. Abre la app una vez con internet. (${error.message})`
     return {}
@@ -110,6 +113,36 @@ export async function abrir(contenedor) {
     }),
   }
 
+  // Zona de los parques de Granada: cada pueblo, cada salida y cada carretera (por código) con su rectángulo
+  const municipioPorNombre = new Map(municipios.features.map((f) => [f.properties.nombre, f]))
+  const salidaPorId = new Map(salidas.map((s) => [s.id, s]))
+  const limitesDe = (lineas) => {
+    const limites = new LngLatBounds(lineas[0][0], lineas[0][0])
+    for (const l of lineas) for (const p of l) limites.extend(p)
+    return limites
+  }
+  const limitesMunicipio = new Map(municipios.features.map((f) => [f.properties.nombre, limitesDe(f.geometry.coordinates.flat())]))
+  const lineasCarretera = new Map()
+  const redesCarretera = new Map()
+  const nombresCarretera = new Map()
+  for (const f of carreteras.features) {
+    for (const c of f.properties.codigo.split(' / ')) {
+      if (!lineasCarretera.has(c)) [lineasCarretera, redesCarretera, nombresCarretera].forEach((m) => m.set(c, []))
+      lineasCarretera.get(c).push(f.geometry.coordinates)
+      redesCarretera.get(c).push(f.properties.red)
+      if (f.properties.nombre) nombresCarretera.get(c).push(f.properties.nombre)
+    }
+  }
+  // El tipo de una carretera es el de la mayoría de sus tramos
+  const redDe = (codigo) => {
+    const cuenta = {}
+    for (const r of redesCarretera.get(codigo) ?? []) cuenta[r] = (cuenta[r] ?? 0) + 1
+    const id = Object.keys(cuenta).sort((a, b) => cuenta[b] - cuenta[a])[0]
+    return REDES.find((r) => r.id === id) ?? REDES[3]
+  }
+  // Pueblos a los que se va desde Granada por una carretera o una salida
+  const usanAcceso = (prueba) => municipios.features.filter((f) => f.properties.acceso?.pasos.some(prueba)).map((f) => f.properties.nombre)
+
   const mapa = crearMapa(lienzo, {
     tramos,
     zonas,
@@ -117,6 +150,10 @@ export async function abrir(contenedor) {
     lugares: puntosLugares,
     nombres: lineasParaNombres(tramos),
     notas: puntosDeNotas(leerNotas()),
+    municipios,
+    carreteras,
+    salidas: puntosDeSalidas(salidas),
+    pueblos: puntosDePueblos(municipios),
   })
 
   // Margen para que lo elegido no quede tapado por la ficha
@@ -135,6 +172,14 @@ export async function abrir(contenedor) {
     ficha.hidden = true
     mapa.setFilter('seleccion', NADA)
     mapa.setFilter('lugar-elegido', ['==', ['get', 'id'], ''])
+    quitarSeleccionZona()
+  }
+
+  // Quita lo marcado de la zona de los parques (un pueblo, una carretera o una salida)
+  function quitarSeleccionZona() {
+    mapa.setFilter('municipio-elegido', ['==', ['get', 'nombre'], ''])
+    mapa.setFilter('carretera-elegida', filtroCarretera(''))
+    mapa.setFilter('salida-elegida', ['==', ['get', 'id'], ''])
   }
 
   const dato = (titulo, valor) => [crear('dt', {}, titulo), crear('dd', {}, valor)]
@@ -177,6 +222,7 @@ export async function abrir(contenedor) {
   }
 
   function elegirCalle(c, centrar = false, punto = null) {
+    quitarSeleccionZona()
     mapa.setFilter('seleccion', ['==', ['get', 'via'], c.id])
     mapa.setFilter('lugar-elegido', ['==', ['get', 'id'], ''])
     const aqui = lugares.filter((l) => l.via === c.id)
@@ -222,11 +268,12 @@ export async function abrir(contenedor) {
         ),
       botonNota(() => punto ?? limitesCalle.get(c.id).getCenter().toArray(), { calle: c }),
     ])
-    if (centrar) mapa.fitBounds(limitesCalle.get(c.id), { padding: margen(), maxZoom: 17, duration: 700 })
+    if (centrar) mapa.fitBounds(limitesCalle.get(c.id), { padding: margen(), maxZoom: 17, duration: 700, bearing: mapa.getBearing() })
   }
 
   // Vía sin nombre en el callejero oficial a la que OpenStreetMap sí pone nombre
   function elegirViaSinNombre(tramo, punto) {
+    quitarSeleccionZona()
     mapa.setFilter('seleccion', ['==', ['get', 'id'], tramo.properties.id])
     mapa.setFilter('lugar-elegido', ['==', ['get', 'id'], ''])
     mostrarFicha([
@@ -247,7 +294,7 @@ export async function abrir(contenedor) {
     const comentario = crear('textarea', { rows: 3, placeholder: 'Qué está mal y cómo debería ser (opcional)' })
     // La primera vez se pide el nombre, para que al compartir las notas se sepa de quién son
     const nombre = !leerAutor() && crear('input', { type: 'text', placeholder: 'Por ejemplo: Miguel', maxlength: 40 })
-    const titulo = sobre.calle?.nombre ?? sobre.lugar?.nombre ?? 'Punto del mapa'
+    const titulo = sobre.calle?.nombre ?? sobre.lugar?.nombre ?? sobre.titulo ?? 'Punto del mapa'
     mostrarFicha([
       crear('p', { class: 'ficha-tipo' }, 'Nueva nota'),
       crear('h2', {}, titulo),
@@ -284,6 +331,7 @@ export async function abrir(contenedor) {
   }
 
   function verNota(nota, recienGuardada = false) {
+    quitarSeleccionZona()
     mapa.setFilter('seleccion', nota.calle ? ['==', ['get', 'via'], nota.calle.id] : NADA)
     mostrarFicha([
       crear('p', { class: 'ficha-tipo' }, recienGuardada ? 'Nota guardada' : `Nota · ${describirFecha(nota.fecha)}`),
@@ -319,6 +367,7 @@ export async function abrir(contenedor) {
 
   function elegirLugar(l, centrar = false) {
     const calle = callePorId.get(l.via)
+    quitarSeleccionZona()
     mapa.setFilter('lugar-elegido', ['==', ['get', 'id'], l.id])
     mapa.setFilter('seleccion', calle ? ['==', ['get', 'via'], calle.id] : NADA)
     mostrarFicha([
@@ -341,6 +390,139 @@ export async function abrir(contenedor) {
     if (centrar) mapa.easeTo({ center: l.punto, zoom: Math.max(mapa.getZoom(), 16.5), padding: margen(), duration: 700 })
   }
 
+  // Zona de los parques de Granada (paso 2.5): fichas de pueblo, salida y carretera, enlazadas entre sí
+  const chipPueblo = (nombre) =>
+    municipioPorNombre.has(nombre)
+      ? crear('button', { class: 'chip', onclick: () => elegirMunicipio(municipioPorNombre.get(nombre), true) }, nombre)
+      : crear('span', { class: 'chip chip-mudo' }, nombre)
+  const chipCarretera = (codigo) =>
+    lineasCarretera.has(codigo)
+      ? crear(
+          'button',
+          { class: 'chip chip-carretera', style: `border-color: ${redDe(codigo).color}`, onclick: () => elegirCarretera(codigo, true) },
+          codigo,
+        )
+      : crear('span', { class: 'chip chip-mudo' }, codigo)
+  const chipSalida = (s, texto) => crear('button', { class: 'chip chip-salida', onclick: () => elegirSalida(s, true) }, texto)
+  const salidaDe = (carretera, numero) => salidas.find((s) => s.carretera === carretera && s.numero === numero)
+  const chipsDe = (lista, chip) => crear('div', { class: 'chips' }, lista.map(chip))
+
+  // "GR-30 hacia Motril, salida 15 → N-323A", con cada carretera y cada salida tocables
+  const pasosAcceso = (pasos) =>
+    crear(
+      'ol',
+      { class: 'pasos-acceso' },
+      pasos.map((p) => {
+        const salida = p.salida && salidaDe(p.carretera, p.salida)
+        return crear(
+          'li',
+          {},
+          chipCarretera(p.carretera),
+          p.hacia && crear('span', {}, `hacia ${p.hacia}`),
+          p.salida && (salida ? chipSalida(salida, `salida ${p.salida}`) : crear('span', {}, `salida ${p.salida}`)),
+        )
+      }),
+    )
+
+  function elegirMunicipio(f, centrar = false) {
+    const m = f.properties
+    mapa.setFilter('seleccion', NADA)
+    mapa.setFilter('lugar-elegido', ['==', ['get', 'id'], ''])
+    quitarSeleccionZona()
+    mapa.setFilter('municipio-elegido', ['==', ['get', 'nombre'], m.nombre])
+    const suyas = salidas.filter((s) => s.municipio === m.nombre)
+    mostrarFicha([
+      crear('p', { class: 'ficha-tipo' }, m.parte === 'Capital' ? 'Capital' : `Pueblo de la zona · ${m.parte}`),
+      crear('h2', {}, m.nombre),
+      m.pueblo && crear('p', { class: 'ficha-nota' }, `El pueblo principal es ${m.pueblo}.`),
+      m.acceso && [
+        crear('h3', {}, 'Cómo se llega desde Granada'),
+        m.acceso.pasos.length ? pasosAcceso(m.acceso.pasos) : crear('p', {}, 'Está pegado a Granada: se llega por calles.'),
+        crear(
+          'p',
+          { class: 'ficha-nota' },
+          `Unos ${m.acceso.minutos} minutos desde el centro. Es el camino más rápido según los datos de OpenStreetMap; puede haber otros.`,
+        ),
+      ],
+      crear('h3', {}, 'Limita con'),
+      chipsDe(m.vecinos, chipPueblo),
+      m.carreteras.length > 0 && [crear('h3', {}, 'Carreteras que pasan'), chipsDe(m.carreteras, chipCarretera)],
+      suyas.length > 0 && [
+        crear('h3', {}, 'Salidas de autovía en su término'),
+        chipsDe(suyas, (s) => chipSalida(s, `${s.carretera} ${s.numero ?? 'sin número'}`)),
+      ],
+      botonNota(() => m.centro, { titulo: m.nombre }),
+    ])
+    if (centrar) mapa.fitBounds(limitesMunicipio.get(m.nombre), { padding: margen(), maxZoom: 14, duration: 700, bearing: mapa.getBearing() })
+  }
+
+  function elegirSalida(s, centrar = false) {
+    mapa.setFilter('seleccion', NADA)
+    mapa.setFilter('lugar-elegido', ['==', ['get', 'id'], ''])
+    quitarSeleccionZona()
+    mapa.setFilter('salida-elegida', ['==', ['get', 'id'], s.id])
+    // Si los carteles dicen lo mismo en los dos sentidos, se ponen una sola vez
+    const carteles = []
+    for (const x of s.sentidos) {
+      const igual = carteles.find((c) => c.destinos.join() === x.destinos.join())
+      if (igual) igual.hacia = null
+      else carteles.push({ ...x })
+    }
+    const porAqui = usanAcceso((p) => p.carretera === s.carretera && p.salida === s.numero)
+    mostrarFicha([
+      crear('p', { class: 'ficha-tipo' }, `Salida de autovía · ${s.carretera}`),
+      crear('h2', {}, s.numero ? `Salida ${s.numero}` : 'Salida sin número'),
+      crear(
+        'dl',
+        { class: 'ficha-datos' },
+        dato('Autovía', chipCarretera(s.carretera)),
+        dato('Municipio', chipPueblo(s.municipio)),
+        carteles.map((c) => dato(c.hacia ? `Carteles yendo hacia ${c.hacia}` : 'Carteles', c.destinos.join(', '))),
+        s.carreterasDestino.length > 0 && dato('Lleva a', chipsDe(s.carreterasDestino, chipCarretera)),
+      ),
+      !s.destinos.length && crear('p', { class: 'ficha-nota' }, 'OpenStreetMap no trae los carteles de esta salida.'),
+      porAqui.length > 0 && [crear('h3', {}, 'Desde Granada se sale por aquí para ir a'), chipsDe(porAqui, chipPueblo)],
+      botonNota(() => s.punto, { titulo: `${s.carretera}, salida ${s.numero ?? 'sin número'}` }),
+    ])
+    if (centrar) mapa.easeTo({ center: s.punto, zoom: Math.max(mapa.getZoom(), 14), padding: margen(), duration: 700 })
+  }
+
+  function elegirCarretera(codigo, centrar = false) {
+    mapa.setFilter('seleccion', NADA)
+    mapa.setFilter('lugar-elegido', ['==', ['get', 'id'], ''])
+    quitarSeleccionZona()
+    mapa.setFilter('carretera-elegida', filtroCarretera(codigo))
+    const nombres = [...new Set(nombresCarretera.get(codigo))].filter((n) => !/^(Calle|Avenida|Plaza|Camino) /.test(n))
+    // Los pueblos por los que pasa, en el orden de la carretera: de norte a sur o de oeste a este
+    const limites = limitesDe(lineasCarretera.get(codigo))
+    const deNorteASur = limites.getNorth() - limites.getSouth() > (limites.getEast() - limites.getWest()) * 0.8
+    const pasaPor = municipios.features
+      .filter((f) => f.properties.carreteras.includes(codigo))
+      .sort((a, b) => (deNorteASur ? b.properties.centro[1] - a.properties.centro[1] : a.properties.centro[0] - b.properties.centro[0]))
+      .map((f) => f.properties.nombre)
+    const suyas = salidas.filter((s) => s.carretera === codigo)
+    const paraIr = usanAcceso((p) => p.carretera === codigo)
+    mostrarFicha([
+      crear('p', { class: 'ficha-tipo' }, redDe(codigo).nombre),
+      crear('h2', {}, codigo),
+      nombres.length > 0 && crear('p', { class: 'ficha-nota' }, nombres.slice(0, 3).join(' · ')),
+      pasaPor.length > 0 && [crear('h3', {}, `Pasa por (${pasaPor.length})`), chipsDe(pasaPor, chipPueblo)],
+      suyas.length > 0 && [
+        crear('h3', {}, `Salidas (${suyas.length})`),
+        crear(
+          'ul',
+          { class: 'lista-salidas' },
+          suyas.map((s) =>
+            crear('li', {}, chipSalida(s, s.numero ?? 'sin número'), crear('span', {}, s.destinos.join(', ') || 'sin carteles')),
+          ),
+        ),
+      ],
+      paraIr.length > 0 && [crear('h3', {}, 'Desde Granada se coge para ir a'), chipsDe(paraIr, chipPueblo)],
+      botonNota(() => lineasCarretera.get(codigo)[0][0], { titulo: codigo }),
+    ])
+    if (centrar) mapa.fitBounds(limites, { padding: margen(), maxZoom: 15, duration: 700, bearing: mapa.getBearing() })
+  }
+
   // Qué hay bajo un punto de la pantalla: una nota, un lugar, una calle o una vía sin nombre oficial
   function queHayEn(pixel) {
     const caja = [
@@ -351,11 +533,18 @@ export async function abrir(contenedor) {
     const nota = buscarEn(['notas'])[0]
     const lugar = buscarEn(['lugares'])[0]
     const tramos = buscarEn(['calles', 'calles-peatonales'])
+    const salida = buscarEn(['salidas'])[0]
+    const carretera = buscarEn(['carreteras'])[0]
+    // Un pueblo se abre tocando su término; Granada no, para que tocar la ciudad siga cerrando la ficha
+    const municipio = buscarEn(['municipios-relleno']).find((f) => f.properties.nombre !== 'Granada')
     return {
       nota: nota && leerNotas().find((n) => n.id === nota.properties.id),
       lugar: lugar && lugarPorId.get(lugar.properties.id),
       calle: callePorId.get(tramos.find((f) => callePorId.has(f.properties.via))?.properties.via),
       sinNombre: tramos.find((f) => f.properties.nombreOsm),
+      salida: salida && salidaPorId.get(salida.properties.id),
+      carretera: carretera?.properties.codigo.split(' / ')[0],
+      municipio: municipio && municipioPorNombre.get(municipio.properties.nombre),
     }
   }
 
@@ -367,8 +556,11 @@ export async function abrir(contenedor) {
     const punto = e.lngLat.toArray()
     if (aqui.nota) return verNota(aqui.nota)
     if (aqui.lugar) return elegirLugar(aqui.lugar)
+    if (aqui.salida) return elegirSalida(aqui.salida)
     if (aqui.calle) return elegirCalle(aqui.calle, false, punto)
     if (aqui.sinNombre) return elegirViaSinNombre(aqui.sinNombre, punto)
+    if (aqui.carretera) return elegirCarretera(aqui.carretera)
+    if (aqui.municipio) return elegirMunicipio(aqui.municipio)
     cerrarFicha()
   })
 
@@ -413,31 +605,47 @@ export async function abrir(contenedor) {
   mapa.on('movestart', (e) => e.originalEvent && cancelarPulsacion())
   alCambiarNotas((notas) => mapa.getSource('notas')?.setData(puntosDeNotas(notas)))
 
-  for (const capa of ['notas', 'lugares', 'calles', 'calles-peatonales']) {
+  for (const capa of ['notas', 'lugares', 'calles', 'calles-peatonales', 'salidas', 'carreteras']) {
     mapa.on('mouseenter', capa, () => (mapa.getCanvas().style.cursor = 'pointer'))
     mapa.on('mouseleave', capa, () => (mapa.getCanvas().style.cursor = ''))
   }
 
-  // Buscador de calles y lugares
+  // Buscador de calles, lugares, pueblos de la zona y carreteras
   const indice = [
     ...calles.map((c) => ({
       tipo: 'calle',
       dato: c,
+      nombre: c.nombre,
       texto: normalizar(`${c.nombre} ${c.nombreOficial ?? ''}`),
       detalle: [c.tipo, c.distritos[0]].filter(Boolean).join(' · '),
     })),
-    ...lugares.map((l) => ({ tipo: 'lugar', dato: l, texto: normalizar(l.nombre), detalle: `${l.categoria} · ${l.distrito}` })),
+    ...lugares.map((l) => ({ tipo: 'lugar', dato: l, nombre: l.nombre, texto: normalizar(l.nombre), detalle: `${l.categoria} · ${l.distrito}` })),
+    ...municipios.features.map((f) => ({
+      tipo: 'pueblo',
+      dato: f,
+      nombre: f.properties.nombre,
+      texto: normalizar(`${f.properties.nombre} ${f.properties.pueblo ?? ''}`),
+      detalle: ['Pueblo de la zona', f.properties.parte, f.properties.pueblo].filter(Boolean).join(' · '),
+    })),
+    ...[...lineasCarretera.keys()].map((c) => ({
+      tipo: 'carretera',
+      dato: c,
+      nombre: c,
+      texto: normalizar(`${c} ${[...new Set(nombresCarretera.get(c))].join(' ')}`),
+      detalle: redDe(c).nombre,
+    })),
   ]
+  // Primero lo que empieza por lo buscado (sin contar "Calle", "Plaza"...): los pueblos y carreteras, las
+  // calles y después los lugares; y entre ellos, lo más corto
+  const PESO_TIPO = { pueblo: -50, carretera: -50, calle: 0, lugar: 200 }
   function buscar(consulta) {
     const q = normalizar(consulta)
     if (q.length < 2) return []
     const palabras = q.split(' ')
-    // Primero lo que empieza por lo buscado (sin contar "Calle", "Plaza"...), las calles antes que los
-    // lugares, y después lo más corto
     const puntos = (x) => {
-      const nombre = normalizar(x.dato.nombre)
+      const nombre = normalizar(x.nombre)
       const empieza = nombre.startsWith(q) || nombre.split(' ').slice(1).join(' ').startsWith(q)
-      return (empieza ? 0 : 1000) + (x.tipo === 'lugar' ? 200 : 0) + nombre.length
+      return (empieza ? 0 : 1000) + PESO_TIPO[x.tipo] + nombre.length
     }
     return indice
       .filter((x) => palabras.every((p) => x.texto.includes(p)))
@@ -446,19 +654,21 @@ export async function abrir(contenedor) {
   }
   function irA(x) {
     resultados.hidden = true
-    buscador.value = x.dato.nombre
+    buscador.value = x.nombre
     buscador.blur()
     if (x.tipo === 'calle') elegirCalle(x.dato, true)
-    else elegirLugar(x.dato, true)
+    else if (x.tipo === 'lugar') elegirLugar(x.dato, true)
+    else if (x.tipo === 'pueblo') elegirMunicipio(x.dato, true)
+    else elegirCarretera(x.dato, true)
   }
   buscador.addEventListener('input', () => {
     const lista = buscar(buscador.value)
     resultados.replaceChildren(
       ...(lista.length
         ? lista.map((x) =>
-            crear('li', {}, crear('button', { onclick: () => irA(x) }, crear('strong', {}, x.dato.nombre), crear('span', {}, x.detalle))),
+            crear('li', {}, crear('button', { onclick: () => irA(x) }, crear('strong', {}, x.nombre), crear('span', {}, x.detalle))),
           )
-        : [crear('li', { class: 'sin-resultados' }, 'No hay ninguna calle ni lugar con ese nombre')]),
+        : [crear('li', { class: 'sin-resultados' }, 'No hay nada con ese nombre')]),
     )
     resultados.hidden = normalizar(buscador.value).length < 2
   })
@@ -479,9 +689,14 @@ export async function abrir(contenedor) {
     nombresCalles: true,
     nombresLugares: true,
     notas: true,
+    zonaParques: true,
+    nombresZona: true,
     grupos: GRUPOS.map((g) => g.nombre),
     ...leerAjustes(),
   }
+  // Zona de los parques: lo que se ve con la casilla, y los nombres (que se pueden quitar aparte)
+  const CAPAS_ZONA = ['municipios-relleno', 'municipios-borde', 'carreteras-borde', 'carreteras', 'pueblos', 'salidas']
+  const NOMBRES_ZONA = ['carreteras-codigos', 'pueblos-nombres', 'granada-nombre', 'salidas-numeros']
   const CAPAS = {
     zonas: ['barrios-relleno', 'barrios-borde', 'distritos-borde', 'barrios-nombres', 'distritos-nombres'],
     fondo: ['fondo-manchas', 'fondo-rios', 'fondo-tren', 'fondo-tren-traviesas'],
@@ -496,20 +711,30 @@ export async function abrir(contenedor) {
     for (const [ajuste, capas] of Object.entries(CAPAS)) {
       for (const capa of capas) mapa.setLayoutProperty(capa, 'visibility', ajustes[ajuste] ? 'visible' : 'none')
     }
+    for (const capa of CAPAS_ZONA) mapa.setLayoutProperty(capa, 'visibility', ajustes.zonaParques ? 'visible' : 'none')
+    for (const capa of NOMBRES_ZONA) {
+      mapa.setLayoutProperty(capa, 'visibility', ajustes.zonaParques && ajustes.nombresZona ? 'visible' : 'none')
+    }
     const filtro = ['in', ['get', 'grupo'], ['literal', ajustes.grupos]]
     mapa.setFilter('lugares', filtro)
     mapa.setFilter('lugares-nombres', filtro)
   }
   const casillaDe = (ajuste, texto) =>
-    casilla(texto, ajustes[ajuste], (si) => {
-      ajustes[ajuste] = si
-      aplicarAjustes()
-    })
-  const casilla = (texto, marcada, alCambiar, color) =>
+    casilla(
+      texto,
+      ajustes[ajuste],
+      (si) => {
+        ajustes[ajuste] = si
+        aplicarAjustes()
+      },
+      null,
+      ajuste,
+    )
+  const casilla = (texto, marcada, alCambiar, color, ajuste) =>
     crear(
       'label',
       { class: 'casilla' },
-      crear('input', { type: 'checkbox', checked: marcada, onchange: (e) => alCambiar(e.target.checked) }),
+      crear('input', { type: 'checkbox', checked: marcada, 'data-ajuste': ajuste, onchange: (e) => alCambiar(e.target.checked) }),
       color && crear('span', { class: 'punto', style: `background: ${color}` }),
       texto,
     )
@@ -523,6 +748,36 @@ export async function abrir(contenedor) {
     casillaDe('sentidos', 'Flechas de sentido'),
     casillaDe('dudosos', 'Sentidos por revisar (?)'),
     casillaDe('notas', 'Notas (mías en rojo, de compañeros en azul)'),
+    crear(
+      'p',
+      { class: 'ayuda-capas ayuda-giro' },
+      'El mapa se gira con dos dedos (en el ordenador, arrastrando con el botón derecho) y se queda como lo dejes, también en los juegos. La brújula de abajo vuelve a poner el norte arriba.',
+    ),
+    crear('h3', {}, 'Zona de los parques de Granada'),
+    casillaDe('zonaParques', 'Pueblos, carreteras y salidas'),
+    casillaDe('nombresZona', 'Nombres de pueblos, códigos y números de salida'),
+    crear(
+      'div',
+      { class: 'leyenda' },
+      REDES.map((r) => crear('span', {}, crear('span', { class: 'punto', style: `background: ${r.color}` }), r.nombre)),
+      crear('span', {}, crear('span', { class: 'punto', style: 'background: #263238' }), 'Salida de autovía'),
+    ),
+    crear(
+      'button',
+      {
+        class: 'boton secundario boton-zona',
+        onclick: () => {
+          ajustes.zonaParques = true
+          aplicarAjustes()
+          panelCapas.querySelector('input[data-ajuste="zonaParques"]').checked = true
+          const zona = new LngLatBounds()
+          for (const l of limitesMunicipio.values()) zona.extend(l)
+          cerrarFicha()
+          mapa.fitBounds(zona, { padding: margen(), duration: 900, bearing: mapa.getBearing() })
+        },
+      },
+      'Ver toda la zona',
+    ),
     crear('h3', {}, 'Lugares de interés'),
     ...GRUPOS.map((g) =>
       casilla(
@@ -550,15 +805,27 @@ export async function abrir(contenedor) {
   )
 
   return {
-    // #/mapa?calle=123 abre la ficha de esa calle; #/mapa?lugar=n456, la de ese lugar; #/mapa?nota=abc, esa nota
+    // #/mapa?calle=123 abre la ficha de esa calle; #/mapa?lugar=n456, la de ese lugar; #/mapa?nota=abc, esa nota;
+    // #/mapa?pueblo=Padul, #/mapa?carretera=A-44 y #/mapa?salida=A-44|144, los de la zona de los parques
     async mostrar(parametros) {
       mapa.resize()
       await cargado
       const calle = callePorId.get(Number(parametros?.get('calle')))
       const lugar = lugarPorId.get(parametros?.get('lugar'))
       const nota = leerNotas().find((n) => n.id === parametros?.get('nota') && n.punto)
+      const pueblo = municipioPorNombre.get(parametros?.get('pueblo'))
+      const carretera = lineasCarretera.has(parametros?.get('carretera')) && parametros.get('carretera')
+      const salida = salidaPorId.get(parametros?.get('salida'))
+      if (pueblo || carretera || salida) {
+        ajustes.zonaParques = true
+        aplicarAjustes()
+        panelCapas.querySelector('input[data-ajuste="zonaParques"]').checked = true
+      }
       if (calle) elegirCalle(calle, true)
       else if (lugar) elegirLugar(lugar, true)
+      else if (pueblo) elegirMunicipio(pueblo, true)
+      else if (carretera) elegirCarretera(carretera, true)
+      else if (salida) elegirSalida(salida, true)
       else if (nota) {
         verNota(nota)
         mapa.easeTo({ center: nota.punto, zoom: Math.max(mapa.getZoom(), 17), padding: margen(), duration: 700 })

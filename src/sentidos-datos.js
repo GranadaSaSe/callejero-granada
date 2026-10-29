@@ -240,7 +240,8 @@ export function candidatosSentido(trozos, { tipo, zona, sentidos }) {
   )
 }
 
-// Rumbo en la pantalla (el mapa siempre tiene el norte arriba), en grados: 0 = a la derecha, 90 = hacia abajo
+// Rumbo en la pantalla con el norte arriba, en grados: 0 = a la derecha, 90 = hacia abajo. Con el mapa girado
+// "giro" grados, en la pantalla se ve a (rumbo - giro) grados.
 export function rumbo(de, a) {
   const [x, y] = direccion(de, a)
   return (Math.atan2(-y, x) * 180) / Math.PI
@@ -250,16 +251,17 @@ const PUNTOS_CARDINALES = ['el este', 'el noreste', 'el norte', 'el noroeste', '
 export const haciaDonde = (grados) => PUNTOS_CARDINALES[(Math.round(-grados / 45) + 8) % 8]
 
 // Las cuatro respuestas: doble sentido, las dos flechas y peatonal. Primero la flecha que apunta más a la
-// izquierda (o más arriba, si el trozo va casi de norte a sur), para que no esté siempre la buena en el mismo
-// sitio. Cada flecha dice hacia qué calle va o, si no llega a ninguna, hacia qué punto cardinal.
-export function opcionesSentido(trozo) {
+// izquierda en la pantalla (o más arriba, si el trozo se ve casi vertical), para que no esté siempre la buena
+// en el mismo sitio; "giro" es cuánto está girado el mapa. Cada flecha dice hacia qué calle va o, si no llega
+// a ninguna, hacia qué punto cardinal.
+export function opcionesSentido(trozo, giro = 0) {
   const [inicio, fin] = trozo.extremos
   const flechas = [
     { id: 'hacia-fin', hacia: fin, grados: rumbo(inicio.punto, fin.punto) },
     { id: 'hacia-inicio', hacia: inicio, grados: rumbo(fin.punto, inicio.punto) },
   ].map((f) => ({ ...f, texto: `Sentido único hacia ${f.hacia.nombre ?? haciaDonde(f.grados)}` }))
-  const x = (f) => Math.cos((f.grados * Math.PI) / 180)
-  const y = (f) => Math.sin((f.grados * Math.PI) / 180)
+  const x = (f) => Math.cos(((f.grados - giro) * Math.PI) / 180)
+  const y = (f) => Math.sin(((f.grados - giro) * Math.PI) / 180)
   const casiVertical = Math.abs(x(flechas[0])) < 0.3
   flechas.sort((a, b) => (casiVertical ? y(a) - y(b) : x(a) - x(b)))
   return [{ id: 'doble', texto: 'Doble sentido' }, ...flechas, { id: 'peatonal', texto: 'Peatonal' }]

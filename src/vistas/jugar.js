@@ -53,7 +53,7 @@ export async function abrir(contenedor) {
 
   let mapa = null
   let mapaListo = null
-  let enPartida = null // { tocar, tecla } mientras se juega
+  let enPartida = null // { tocar, tecla, girar } mientras se juega
 
   function prepararMapa() {
     if (mapaListo) return mapaListo
@@ -101,6 +101,8 @@ export async function abrir(contenedor) {
       }),
     )
     mapa.on('click', (e) => enPartida?.tocar?.([e.lngLat.lng, e.lngLat.lat]))
+    // Si se gira el mapa a mitad de pregunta, el juego puede girar lo suyo (las flechas de los sentidos)
+    mapa.on('rotate', () => enPartida?.girar?.(mapa.getBearing()))
     return mapaListo
   }
 
@@ -141,12 +143,14 @@ export async function abrir(contenedor) {
       enPartida = manejadores
     },
     limpiar: () => FUENTES.forEach((fuente) => mapa.getSource(fuente).setData(VACIO)),
+    // Giro del mapa en grados (0 = norte arriba)
+    giro: () => mapa.getBearing(),
     ponerDatos: (fuente, datos) => mapa.getSource(fuente).setData(datos),
-    encuadrarZona: (zona) => mapa.fitBounds(limitesZona.get(zona) ?? limitesZona.get('Todos'), { padding: margen(), duration: 500 }),
+    encuadrarZona: (zona) => mapa.fitBounds(limitesZona.get(zona) ?? limitesZona.get('Todos'), { padding: margen(), duration: 500, bearing: mapa.getBearing() }),
     encuadrar(puntos, { maxZoom = 17, holgura = 0 } = {}) {
       const limites = new LngLatBounds(puntos[0], puntos[0])
       for (const p of puntos) limites.extend(p)
-      mapa.fitBounds(limites, { padding: margen(holgura), maxZoom, duration: 700 })
+      mapa.fitBounds(limites, { padding: margen(holgura), maxZoom, duration: 700, bearing: mapa.getBearing() })
     },
   }
 

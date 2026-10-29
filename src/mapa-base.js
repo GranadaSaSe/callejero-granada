@@ -1,6 +1,7 @@
 // Mapa base de Granada, compartido por el mapa de estudio y los juegos de mapa (Fase 2): calles, distritos,
-// barrios, fondo (ríos, parques, vías del tren), lugares, nombres y flechas de sentido. Se dibuja solo con los
-// datos de la app y las letras de public/fuentes/, así que funciona sin internet.
+// barrios, fondo (ríos, parques, vías del tren), lugares, nombres y flechas de sentido, y la zona de los
+// parques de Granada (paso 2.5: municipios, carreteras y salidas de autovía). Se dibuja solo con los datos de
+// la app y las letras de public/fuentes/, así que funciona sin internet.
 import { AttributionControl, Map as Mapa, NavigationControl, ScaleControl, setWorkerUrl } from 'maplibre-gl'
 import urlTrabajador from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 import 'maplibre-gl/dist/maplibre-gl.css'
@@ -19,6 +20,18 @@ const COLORES_DISTRITO = {
 }
 export const NADA = ['==', ['get', 'via'], -1]
 const VACIO = { type: 'FeatureCollection', features: [] }
+
+// Carreteras de la zona por red, con su color (parecidos a los del plano de carreteras de la provincia)
+export const REDES = [
+  { id: 'autovia', nombre: 'Autovía', color: '#c62828' },
+  { id: 'nacional', nombre: 'Carretera nacional', color: '#ef6c00' },
+  { id: 'autonomica', nombre: 'Carretera autonómica', color: '#2e7d32' },
+  { id: 'provincial', nombre: 'Carretera provincial', color: '#c49000' },
+]
+const COLOR_RED = ['match', ['get', 'red'], ...REDES.flatMap((r) => [r.id, r.color]), '#777777']
+export const COLOR_MUNICIPIOS = '#c2185b'
+// Una carretera elegida (su código puede ir con otro: "N-432 / GR-3417")
+export const filtroCarretera = (codigo) => ['in', ` / ${codigo} / `, ['concat', ' / ', ['get', 'codigo'], ' / ']]
 
 // Ancho de las calles según su importancia (1 = vía principal ... 6 = peatonal o sin clasificar) y el zoom
 const anchoCalle = (extra = 0) => [
@@ -123,9 +136,21 @@ export function lineasParaNombres(tramos) {
   return { type: 'FeatureCollection', features: lineas }
 }
 
-function estilo(base, { tramos, zonas, fondo, lugares, nombres, notas }) {
+function estilo(base, { tramos, zonas, fondo, lugares, nombres, notas, municipios, carreteras, salidas, pueblos }) {
   const esNivel = (nivel) => ['==', ['get', 'nivel'], nivel]
   const esFondo = (...tipos) => ['in', ['get', 'tipo'], ['literal', tipos]]
+  const esAutovia = ['==', ['get', 'red'], 'autovia']
+  const anchoCarretera = (extra = 0) => [
+    'interpolate',
+    ['linear'],
+    ['zoom'],
+    9,
+    ['+', extra * 0.5, ['match', ['get', 'red'], 'autovia', 2.6, 'provincial', 1, 1.6]],
+    14,
+    ['+', extra, ['match', ['get', 'red'], 'autovia', 6, 'provincial', 2.6, 4]],
+    17,
+    ['+', extra * 1.5, ['match', ['get', 'red'], 'autovia', 11, 'provincial', 5, 7]],
+  ]
   return {
     version: 8,
     glyphs: `${base}fuentes/{fontstack}/{range}.pbf`,
@@ -136,6 +161,10 @@ function estilo(base, { tramos, zonas, fondo, lugares, nombres, notas }) {
       lugares: { type: 'geojson', data: lugares },
       nombres: { type: 'geojson', data: nombres },
       notas: { type: 'geojson', data: notas },
+      municipios: { type: 'geojson', data: municipios },
+      carreteras: { type: 'geojson', data: carreteras },
+      salidas: { type: 'geojson', data: salidas },
+      pueblos: { type: 'geojson', data: pueblos },
     },
     layers: [
       { id: 'fondo', type: 'background', paint: { 'background-color': '#f3efe8' } },
@@ -186,6 +215,39 @@ function estilo(base, { tramos, zonas, fondo, lugares, nombres, notas }) {
         filter: esFondo('tren'),
         paint: { 'line-color': '#ffffff', 'line-width': ['interpolate', ['linear'], ['zoom'], 14, 0.8, 16, 1.6], 'line-dasharray': [3, 3] },
       },
+      // Zona de los parques de Granada (paso 2.5): municipios con el límite en rosa, como en el plano, y
+      // carreteras debajo de las calles de la capital
+      {
+        id: 'municipios-relleno',
+        type: 'fill',
+        source: 'municipios',
+        paint: { 'fill-color': COLOR_MUNICIPIOS, 'fill-opacity': 0.04 },
+      },
+      {
+        id: 'municipios-borde',
+        type: 'line',
+        source: 'municipios',
+        paint: {
+          'line-color': COLOR_MUNICIPIOS,
+          'line-width': ['interpolate', ['linear'], ['zoom'], 9, 1, 13, 2.2],
+          'line-opacity': 0.7,
+        },
+      },
+      {
+        id: 'carreteras-borde',
+        type: 'line',
+        source: 'carreteras',
+        filter: esAutovia,
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': '#ffffff', 'line-width': anchoCarretera(2.5) },
+      },
+      {
+        id: 'carreteras',
+        type: 'line',
+        source: 'carreteras',
+        layout: { 'line-cap': 'round', 'line-join': 'round', 'line-sort-key': ['match', ['get', 'red'], 'autovia', 4, 'nacional', 3, 'autonomica', 2, 1] },
+        paint: { 'line-color': COLOR_RED, 'line-width': anchoCarretera() },
+      },
       {
         id: 'calles-borde',
         type: 'line',
@@ -223,6 +285,21 @@ function estilo(base, { tramos, zonas, fondo, lugares, nombres, notas }) {
         filter: NADA,
         layout: { 'line-cap': 'round', 'line-join': 'round' },
         paint: { 'line-color': '#b3261e', 'line-width': anchoCalle(3), 'line-opacity': 0.8 },
+      },
+      {
+        id: 'carretera-elegida',
+        type: 'line',
+        source: 'carreteras',
+        filter: filtroCarretera(''),
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': '#1565c0', 'line-width': anchoCarretera(4), 'line-opacity': 0.75 },
+      },
+      {
+        id: 'municipio-elegido',
+        type: 'line',
+        source: 'municipios',
+        filter: ['==', ['get', 'nombre'], ''],
+        paint: { 'line-color': COLOR_MUNICIPIOS, 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 3, 14, 6] },
       },
       {
         id: 'dudosos-linea',
@@ -371,6 +448,95 @@ function estilo(base, { tramos, zonas, fondo, lugares, nombres, notas }) {
         },
         paint: { 'text-color': '#5b4636', 'text-halo-color': 'rgba(255, 255, 255, 0.9)', 'text-halo-width': 2 },
       },
+      // Zona de los parques: códigos de las carreteras, pueblos y salidas de autovía con su número
+      {
+        id: 'carreteras-codigos',
+        type: 'symbol',
+        source: 'carreteras',
+        minzoom: 9,
+        layout: {
+          'symbol-placement': 'line',
+          'symbol-spacing': 350,
+          'symbol-sort-key': ['match', ['get', 'red'], 'autovia', 1, 'nacional', 2, 'autonomica', 3, 4],
+          'text-field': ['get', 'codigo'],
+          'text-font': ['Noto Sans Bold'],
+          'text-size': ['interpolate', ['linear'], ['zoom'], 9, 10, 15, 13],
+          'text-max-angle': 30,
+          'text-padding': 4,
+        },
+        paint: { 'text-color': COLOR_RED, 'text-halo-color': '#ffffff', 'text-halo-width': 2 },
+      },
+      {
+        id: 'pueblos',
+        type: 'circle',
+        source: 'pueblos',
+        maxzoom: 14,
+        filter: ['!=', ['get', 'nombre'], 'Granada'],
+        paint: { 'circle-color': '#4a3f38', 'circle-radius': 3.5, 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 1.5 },
+      },
+      {
+        id: 'pueblos-nombres',
+        type: 'symbol',
+        source: 'pueblos',
+        maxzoom: 14,
+        filter: ['!=', ['get', 'nombre'], 'Granada'],
+        layout: {
+          'text-field': ['get', 'nombre'],
+          'text-font': ['Noto Sans Bold'],
+          'text-size': ['interpolate', ['linear'], ['zoom'], 9, 11, 13, 14],
+          'text-offset': [0, 0.6],
+          'text-anchor': 'top',
+          'text-max-width': 8,
+        },
+        paint: { 'text-color': '#7b1450', 'text-halo-color': '#ffffff', 'text-halo-width': 2 },
+      },
+      {
+        id: 'granada-nombre',
+        type: 'symbol',
+        source: 'pueblos',
+        maxzoom: 11.5,
+        filter: ['==', ['get', 'nombre'], 'Granada'],
+        layout: { 'text-field': 'GRANADA', 'text-font': ['Noto Sans Bold'], 'text-size': 15, 'text-letter-spacing': 0.1 },
+        paint: { 'text-color': '#7b1450', 'text-halo-color': '#ffffff', 'text-halo-width': 2 },
+      },
+      {
+        id: 'salidas',
+        type: 'circle',
+        source: 'salidas',
+        minzoom: 10.5,
+        paint: {
+          'circle-color': '#263238',
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 10.5, 6, 15, 11],
+          'circle-stroke-color': '#ffffff',
+          'circle-stroke-width': 2,
+        },
+      },
+      {
+        id: 'salidas-numeros',
+        type: 'symbol',
+        source: 'salidas',
+        minzoom: 12,
+        layout: {
+          'text-field': ['coalesce', ['get', 'numero'], '·'],
+          'text-font': ['Noto Sans Bold'],
+          'text-size': 10,
+          'text-allow-overlap': true,
+          'text-ignore-placement': true,
+        },
+        paint: { 'text-color': '#ffffff' },
+      },
+      {
+        id: 'salida-elegida',
+        type: 'circle',
+        source: 'salidas',
+        filter: ['==', ['get', 'id'], ''],
+        paint: {
+          'circle-color': 'rgba(0, 0, 0, 0)',
+          'circle-radius': 16,
+          'circle-stroke-color': '#1565c0',
+          'circle-stroke-width': 3,
+        },
+      },
       {
         id: 'notas',
         type: 'circle',
@@ -405,31 +571,90 @@ export function crearFlecha(color = '#6b5f55') {
 }
 
 // Crea el mapa en "lienzo". Lo que no se pasa queda vacío: los juegos no llevan nombres, lugares ni notas.
-export function crearMapa(lienzo, { tramos, zonas, fondo, lugares = VACIO, nombres = VACIO, notas = VACIO }) {
+// Orientación del mapa elegida en este dispositivo, en grados (0 = norte arriba, 90 = este arriba)
+const CLAVE_ORIENTACION = 'callejero-orientacion'
+function leerOrientacion() {
+  try {
+    return Number(localStorage.getItem(CLAVE_ORIENTACION)) || 0
+  } catch {
+    return 0
+  }
+}
+function guardarOrientacion(grados) {
+  try {
+    localStorage.setItem(CLAVE_ORIENTACION, String(Math.round(grados)))
+  } catch {
+    // Sin almacenamiento (modo privado): el giro dura mientras el mapa esté abierto
+  }
+}
+
+// Puntos de los pueblos de la zona (el pueblo principal de cada municipio) para escribir su nombre
+export const puntosDePueblos = (municipios) => ({
+  type: 'FeatureCollection',
+  features: municipios.features.map((f) => ({
+    type: 'Feature',
+    properties: { nombre: f.properties.nombre },
+    geometry: { type: 'Point', coordinates: f.properties.centro },
+  })),
+})
+
+// Salidas de autovía como puntos del mapa
+export const puntosDeSalidas = (salidas) => ({
+  type: 'FeatureCollection',
+  features: salidas.map((s) => ({
+    type: 'Feature',
+    properties: { id: s.id, numero: s.numero, carretera: s.carretera },
+    geometry: { type: 'Point', coordinates: s.punto },
+  })),
+})
+
+export function crearMapa(
+  lienzo,
+  { tramos, zonas, fondo, lugares = VACIO, nombres = VACIO, notas = VACIO, municipios = VACIO, carreteras = VACIO, salidas = VACIO, pueblos = VACIO },
+) {
+  const orientacion = leerOrientacion()
   const mapa = new Mapa({
     container: lienzo,
-    style: estilo(`${location.origin}${import.meta.env.BASE_URL}`, { tramos, zonas, fondo, lugares, nombres, notas }),
+    style: estilo(`${location.origin}${import.meta.env.BASE_URL}`, {
+      tramos,
+      zonas,
+      fondo,
+      lugares,
+      nombres,
+      notas,
+      municipios,
+      carreteras,
+      salidas,
+      pueblos,
+    }),
     bounds: [
       [-3.65, 37.15],
       [-3.57, 37.2],
     ],
+    // Toda la zona de los parques de Granada, con margen
     maxBounds: [
-      [-3.85, 37.05],
-      [-3.4, 37.3],
+      [-4.3, 36.72],
+      [-2.9, 37.58],
     ],
+    // Cada uno gira el mapa como mejor se ubique (dos dedos, o botón derecho del ratón); siempre plano
+    bearing: orientacion,
+    fitBoundsOptions: { bearing: orientacion },
     maxZoom: 19,
-    dragRotate: false,
+    maxPitch: 0,
     pitchWithRotate: false,
     attributionControl: false,
   })
-  mapa.touchZoomRotate.disableRotation()
+  mapa.touchPitch.disable()
+  // La orientación se recuerda en el dispositivo y la usan el mapa de estudio y los juegos. La brújula
+  // vuelve a poner el norte arriba.
+  mapa.on('rotateend', () => guardarOrientacion(mapa.getBearing()))
   mapa.addControl(
     new AttributionControl({
       compact: true,
       customAttribution: '© colaboradores de OpenStreetMap · Callejero Digital de Andalucía (Junta de Andalucía)',
     }),
   )
-  mapa.addControl(new NavigationControl({ showCompass: false }), 'bottom-right')
+  mapa.addControl(new NavigationControl({ showCompass: true, visualizePitch: false }), 'bottom-right')
   mapa.addControl(new ScaleControl({ unit: 'metric' }), 'bottom-left')
   mapa.on('style.load', () => {
     if (!mapa.hasImage('flecha')) mapa.addImage('flecha', crearFlecha(), { pixelRatio: 2 })

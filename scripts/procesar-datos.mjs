@@ -7,7 +7,8 @@
 //   lugares.json     edificios y lugares de interés con su dirección, distrito y barrio
 //   carreteras.json  carreteras con código de la zona de los parques de Granada
 //   salidas.json     salidas de autovía de esa zona con sus destinos en cada sentido
-//   municipios.json  municipios de esa zona con su pueblo principal, vecinos y cómo se llega desde Granada
+//   municipios.json  municipios de esa zona con su pueblo principal, vecinos, carreteras que pasan y cómo se
+//                    llega desde Granada
 //
 // Los nombres y los tramos de las calles salen del callejero oficial (CDAU). El sentido de circulación
 // sale del CDAU y, donde no lo trae, de OpenStreetMap; si los dos no coinciden, el tramo queda marcado
@@ -752,6 +753,30 @@ const carreteras = carreterasOsm.elements
   })
 await guardar('carreteras.json', coleccion(carreteras))
 
+// Carreteras que pasan por cada municipio: primero las autovías, luego nacionales, autonómicas y provinciales.
+// El tipo de cada código es el de la mayoría de sus tramos (la GR-3418 comparte unos metros con la N-432).
+const ORDEN_RED = ['autovia', 'nacional', 'autonomica', 'provincial']
+const redesDe = new Map()
+for (const f of carreteras) {
+  for (const c of f.properties.codigo.split(' / ')) {
+    if (!redesDe.has(c)) redesDe.set(c, [])
+    redesDe.get(c).push(f.properties.red)
+  }
+}
+const redDeCodigo = (c) => contarValores(redesDe.get(c))[0][0]
+const carreterasDe = new Map(municipios.map((m) => [m.nombre, new Set()]))
+for (const f of carreteras) {
+  f.geometry.coordinates.forEach((p, i) => {
+    if (i % 2) return
+    const m = municipios.find((x) => x.zona.contiene(p))
+    for (const c of m ? f.properties.codigo.split(' / ') : []) carreterasDe.get(m.nombre).add(c)
+  })
+}
+const listaCarreteras = (nombre) =>
+  [...carreterasDe.get(nombre)].sort(
+    (a, b) => ORDEN_RED.indexOf(redDeCodigo(a)) - ORDEN_RED.indexOf(redDeCodigo(b)) || a.localeCompare(b, 'es', { numeric: true }),
+  )
+
 const salidas = salidasDeLaZona(carreterasOsm.elements, municipios)
 const accesos = accesosDesdeGranada(carreterasOsm.elements, municipios, salidas)
 await guardar(
@@ -772,6 +797,7 @@ await guardar(
         parte: m.parte,
         pueblo: m.pueblo,
         vecinos: m.vecinos,
+        carreteras: listaCarreteras(m.nombre),
         centro: redondear([m.centro])[0],
         acceso: accesos[m.nombre] ?? null,
       },
