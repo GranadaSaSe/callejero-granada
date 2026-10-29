@@ -1,17 +1,19 @@
 // Pestaña Jugar (Fase 2): juegos sobre un mapa sin nombres. Aquí está lo común (la portada, el mapa y los
 // paneles de arriba y abajo); cada juego está en src/juegos/: "¿Dónde está?" (paso 2.2), "¿Cómo se llama?"
-// (paso 2.3, mapa mudo al revés) y "¿Por dónde se circula?" (paso 2.4, sentidos de circulación).
+// (paso 2.3, mapa mudo al revés), "¿Por dónde se circula?" (paso 2.4, sentidos de circulación) y "Zona de los
+// parques" (paso 2.5: pueblos, salidas de autovía y carreteras).
 import { LngLatBounds } from 'maplibre-gl'
 import { crear, rellenar } from '../crear.js'
 import { cargar } from '../datos.js'
 import { juegoDonde } from '../juegos/donde.js'
 import { juegoNombre } from '../juegos/nombre.js'
 import { juegoSentidos } from '../juegos/sentidos.js'
+import { juegoZona } from '../juegos/zona.js'
 import { VACIO } from '../juegos/comun.js'
-import { crearFlecha, crearMapa } from '../mapa-base.js'
+import { crearFlecha, crearMapa, puntosDePueblos, puntosDeSalidas } from '../mapa-base.js'
 import { notaAbierta } from '../nota-pregunta.js'
 
-const JUEGOS = [juegoDonde, juegoNombre, juegoSentidos]
+const JUEGOS = [juegoDonde, juegoNombre, juegoSentidos, juegoZona]
 // Capas del mapa base que darían la respuesta (nombres, lugares) o que no pintan nada en los juegos
 const CAPAS_OCULTAS = [
   'nombres-principales',
@@ -24,10 +26,17 @@ const CAPAS_OCULTAS = [
   'dudosos',
   'dudosos-linea',
   'notas',
+  // De la zona de los parques se ven los límites, las carreteras y las salidas, pero sin nombres ni números
+  'pueblos-nombres',
+  'granada-nombre',
+  'carreteras-codigos',
+  'salidas-numeros',
+  'municipio-elegido',
+  'carretera-elegida',
+  'salida-elegida',
 ]
 // Figuras de los juegos: el sitio de la pregunta o de la respuesta, la línea de distancia y el toque
 const FUENTES = ['juego-respuesta', 'juego-distancia', 'juego-toque']
-const PROXIMAMENTE = [['Carreteras del área', 'Cada vía con su código y sus salidas']]
 
 export async function abrir(contenedor) {
   const pagina = crear('div', { class: 'pagina' }, crear('p', { class: 'cargando-texto' }, 'Preparando los juegos…'))
@@ -39,7 +48,9 @@ export async function abrir(contenedor) {
   // Los controles del mapa se colocan justo encima del panel de abajo, que cambia de alto
   new ResizeObserver(() => juego.style.setProperty('--hueco-abajo', `${abajo.offsetHeight + 16}px`)).observe(abajo)
 
-  const [calles, tramos, zonas, fondo, lugares] = await Promise.all(['calles', 'tramos', 'zonas', 'fondo', 'lugares'].map(cargar))
+  const [calles, tramos, zonas, fondo, lugares, municipios, carreteras, salidas] = await Promise.all(
+    ['calles', 'tramos', 'zonas', 'fondo', 'lugares', 'municipios', 'carreteras', 'salidas'].map(cargar),
+  )
 
   // Rectángulo de cada distrito y de toda Granada, para encuadrar el mapa al empezar cada pregunta
   const limitesZona = new Map()
@@ -57,7 +68,15 @@ export async function abrir(contenedor) {
 
   function prepararMapa() {
     if (mapaListo) return mapaListo
-    mapa = crearMapa(lienzo, { tramos, zonas, fondo })
+    mapa = crearMapa(lienzo, {
+      tramos,
+      zonas,
+      fondo,
+      municipios,
+      carreteras,
+      salidas: puntosDeSalidas(salidas),
+      pueblos: puntosDePueblos(municipios),
+    })
     mapaListo = new Promise((listo) =>
       mapa.on('load', () => {
         for (const capa of CAPAS_OCULTAS) if (mapa.getLayer(capa)) mapa.setLayoutProperty(capa, 'visibility', 'none')
@@ -71,6 +90,14 @@ export async function abrir(contenedor) {
         const halo = { 'text-color': ['get', 'color'], 'text-halo-color': '#ffffff', 'text-halo-width': 2 }
         const redondo = { 'line-cap': 'round', 'line-join': 'round' }
         for (const capa of [
+          // Términos municipales marcados (zona de los parques)
+          {
+            id: 'juego-respuesta-relleno',
+            type: 'fill',
+            source: 'juego-respuesta',
+            filter: ['==', ['geometry-type'], 'Polygon'],
+            paint: { 'fill-color': ['get', 'color'], 'fill-opacity': 0.25 },
+          },
           { id: 'juego-respuesta-borde', type: 'line', source: 'juego-respuesta', filter: esLinea, layout: redondo, paint: { 'line-color': '#ffffff', 'line-width': grosor(8, 18) } },
           { id: 'juego-respuesta-linea', type: 'line', source: 'juego-respuesta', filter: esLinea, layout: redondo, paint: { 'line-color': ['get', 'color'], 'line-width': grosor(4, 11) } },
           // Flechas de sentido de las líneas que lo llevan (en "¿Por dónde se circula?", al contestar)
@@ -125,7 +152,7 @@ export async function abrir(contenedor) {
 
   // Lo que los juegos usan de la pestaña
   const ctx = {
-    datos: { calles, tramos, lugares },
+    datos: { calles, tramos, lugares, municipios, carreteras, salidas },
     pagina,
     arriba,
     abajo,
@@ -159,16 +186,12 @@ export async function abrir(contenedor) {
     rellenar(
       pagina,
       crear('h1', {}, 'Jugar'),
-      crear('p', { class: 'intro' }, 'Juegos sobre un mapa sin nombres, para saber dónde está cada sitio, cómo se llama y por dónde se circula.'),
-      JUEGOS.map((j) => j.tarjeta(ctx)),
-      crear('h2', {}, 'Próximamente'),
       crear(
-        'ul',
-        { class: 'secciones' },
-        PROXIMAMENTE.map(([titulo, texto]) =>
-          crear('li', {}, crear('div', { class: 'seccion proximamente' }, crear('strong', {}, titulo), crear('span', {}, texto))),
-        ),
+        'p',
+        { class: 'intro' },
+        'Juegos sobre un mapa sin nombres, para saber dónde está cada sitio, cómo se llama, por dónde se circula y cómo se va a los pueblos de alrededor.',
       ),
+      JUEGOS.map((j) => j.tarjeta(ctx)),
     )
   }
 
