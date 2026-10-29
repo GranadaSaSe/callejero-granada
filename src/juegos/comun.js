@@ -44,11 +44,11 @@ export function apuntarSitio(items, id, acierto, extra = {}) {
 export const cifra = (numero, texto) => crear('div', { class: 'cifra' }, crear('strong', {}, numero), crear('span', {}, texto))
 
 // Desplegables de qué preguntar (calles, lugares...) y en qué zona
-export const elegirTipoYZona = (ajustes, cambiar) => [
+export const elegirTipoYZona = (ajustes, cambiar, tipos = TIPOS_DONDE) => [
   crear(
     'select',
     { 'aria-label': 'Qué preguntar', onchange: (e) => cambiar({ tipo: e.target.value }) },
-    TIPOS_DONDE.map((t) => crear('option', { value: t.id, selected: t.id === ajustes.tipo }, t.nombre)),
+    tipos.map((t) => crear('option', { value: t.id, selected: t.id === ajustes.tipo }, t.nombre)),
   ),
   crear(
     'select',

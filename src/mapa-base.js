@@ -388,12 +388,12 @@ function estilo(base, { tramos, zonas, fondo, lugares, nombres, notas }) {
 }
 
 // Flecha apuntando a la derecha: el mapa la gira para que siga la calle en el sentido de la circulación
-function crearFlecha() {
+export function crearFlecha(color = '#6b5f55') {
   const lienzo = document.createElement('canvas')
   lienzo.width = 30
   lienzo.height = 20
   const c = lienzo.getContext('2d')
-  c.fillStyle = '#6b5f55'
+  c.fillStyle = color
   c.beginPath()
   c.moveTo(4, 4)
   c.lineTo(26, 10)

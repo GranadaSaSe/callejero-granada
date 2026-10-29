@@ -1583,6 +1583,13 @@ li[data-ok='si'] .estado {
   height: 26px;
 }
 
+/* "¿Por dónde se circula?": en el círculo va el dibujo de la respuesta (la flecha, girada como en el mapa) */
+.opcion-sentido .letra span {
+  display: inline-block;
+  font-size: 17px;
+  line-height: 1;
+}
+
 .escribir-nombre input {
   width: 100%;
   margin-bottom: 10px;
