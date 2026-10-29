@@ -80,6 +80,9 @@ export async function abrir(contenedor) {
     mapaListo = new Promise((listo) =>
       mapa.on('load', () => {
         for (const capa of CAPAS_OCULTAS) if (mapa.getLayer(capa)) mapa.setLayoutProperty(capa, 'visibility', 'none')
+        // Las carreteras de la zona, en gris: con sus colores, una autovía (roja) o una autonómica (verde) se
+        // confunden con lo marcado en rojo o en verde al contestar
+        mapa.setPaintProperty('carreteras', 'line-color', '#a39a91')
         for (const fuente of FUENTES) mapa.addSource(fuente, { type: 'geojson', data: VACIO })
         mapa.addImage('flecha-juego', crearFlecha('#ffffff'), { pixelRatio: 2 })
         const esLinea = ['==', ['geometry-type'], 'LineString']
