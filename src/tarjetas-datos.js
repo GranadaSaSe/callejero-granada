@@ -1,7 +1,9 @@
-// Crea las tarjetas de repaso (paso 1.6) a partir de los datos de calles, lugares y ejes.
+// Crea las tarjetas de repaso (paso 1.6) a partir de los datos de calles, lugares y ejes, y de la zona de los
+// parques de Granada (paso 2.5: sus tarjetas salen de src/zona-preguntas.js).
 // Cada tarjeta tiene un id fijo (el progreso se guarda por id) y su texto se calcula con los datos del
 // momento, así que si se corrige un dato la tarjeta muestra ya la respuesta corregida.
 // Este archivo no usa nada del navegador, así que se puede probar con Node.
+import { tarjetasZona } from './zona-preguntas.js'
 
 export const MAZOS = [
   { id: 'zona', nombre: 'Distrito y barrio de cada calle' },
@@ -9,6 +11,7 @@ export const MAZOS = [
   { id: 'sentido', nombre: 'Sentido de circulación' },
   { id: 'cruces', nombre: 'Cruces de los ejes, en orden' },
   { id: 'lugares', nombre: 'En qué calle está cada lugar' },
+  { id: 'carreteras', nombre: 'Pueblos, salidas y carreteras de la zona' },
 ]
 
 // Los lugares más útiles para un bombero, primero
@@ -39,9 +42,11 @@ function sentidoClaro(c) {
   return null
 }
 
-export function crearTarjetas({ calles, lugares, ejes }) {
+// "zona" ({ municipios, salidas }) es opcional: sin ella, el mazo de la zona queda vacío
+export function crearTarjetas({ calles, lugares, ejes, zona = null }) {
   const ordenadas = [...calles].sort(porImportancia)
   const mazos = Object.fromEntries(MAZOS.map((m) => [m.id, []]))
+  if (zona) mazos.carreteras = tarjetasZona(zona)
 
   for (const c of ordenadas) {
     const base = { distrito: c.distritos[0] ?? null, enlace: `#/mapa?calle=${c.id}` }
@@ -187,6 +192,9 @@ export function crearOpciones(t, mazos, azar = Math.random) {
     const mismoTipo = mazos.lugares.filter((x) => x.datos.categoria === t.datos.categoria && x.datos.via !== t.datos.via)
     falsas = elegir(mismoTipo.map((x) => x.respuesta), 3, correcta, azar)
     if (falsas.length < 3) falsas.push(...elegir(mazos.lugares.map((x) => x.respuesta), 3 - falsas.length, correcta, azar))
+  } else if (t.mazo === 'carreteras') {
+    // Las de los pueblos o salidas de alrededor, que la tarjeta ya trae
+    falsas = elegir(t.datos.falsas, 3, correcta, azar)
   }
   falsas = [...new Set(falsas)].filter((x) => x !== correcta)
   return falsas.length >= 3 ? barajar([correcta, ...falsas.slice(0, 3)], azar) : null

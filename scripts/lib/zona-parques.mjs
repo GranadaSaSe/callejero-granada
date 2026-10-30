@@ -47,6 +47,25 @@ export const ZONA_PARQUES = {
   'Valle de Lecrín': ['Albuñuelas', 'Dúrcal', 'El Valle', 'Lecrín', 'Nigüelas', 'Padul', 'Villamena'],
 }
 
+// Pueblos de fuera de la zona: los que la rodean en el plano y otros conocidos de otras zonas de parque.
+// Sirven de respuestas falsas en «¿cuál de estos pueblos está en la zona?».
+export const PUEBLOS_FUERA = [
+  'Agrón',
+  'Ventas de Huelma',
+  'Moraleda de Zafayona',
+  'Montefrío',
+  'Colomera',
+  'Deifontes',
+  'Iznalloz',
+  'El Pinar',
+  'Lanjarón',
+  'Alhama de Granada',
+  'Loja',
+  'Guadix',
+  'Motril',
+  'Órgiva',
+]
+
 // Parte de la zona de cada municipio: { Albolote: 'Norte', ... }
 export const PARTE_DE_MUNICIPIO = Object.fromEntries(
   Object.entries(ZONA_PARQUES).flatMap(([parte, nombres]) => nombres.map((n) => [n, parte])),

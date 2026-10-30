@@ -1,8 +1,10 @@
 // Preguntas tipo examen (paso 1.7): cuatro opciones y una correcta, agrupadas por temas.
 // Mezcla las tarjetas de repaso (con las respuestas falsas de crearOpciones) con preguntas propias de
 // examen: "¿qué calle va desde A hasta B?", "¿cuál de estas calles cruza con X?", "¿cuál está en el
-// barrio Y?", "¿en qué distrito está tal lugar?".
+// barrio Y?", "¿en qué distrito está tal lugar?" y, de la zona de los parques, "¿cuál de estos pueblos está en
+// la zona?" y "¿con cuál limita X?".
 // Este archivo no usa nada del navegador, así que se puede probar con Node.
+import { PUEBLOS_FUERA } from '../scripts/lib/zona-parques.mjs'
 import { DISTRITOS } from './ejes-lista.js'
 import { crearOpciones, crearTarjetas } from './tarjetas-datos.js'
 
@@ -12,6 +14,7 @@ export const TEMAS = [
   { id: 'sentido', nombre: 'Sentido de circulación' },
   { id: 'cruces', nombre: 'Cruces y ejes' },
   { id: 'lugares', nombre: 'Lugares de interés' },
+  { id: 'carreteras', nombre: 'Pueblos y carreteras de la zona' },
 ]
 
 // Qué calles pueden salir, según su importancia (1 = vía principal ... 6 = peatonal o sin clasificar)
@@ -51,12 +54,12 @@ const deTarjeta = (t, mazos, tema, azar) => {
 }
 
 // Para cada tema, una lista de "recetas": cada una crea una pregunta (o null si no se puede)
-function recetas({ calles, lugares, ejes }, { nivel, distrito }, azar) {
+function recetas({ calles, lugares, ejes, zona = null }, { nivel, distrito }, azar) {
   const maximo = NIVELES.find((n) => n.id === nivel)?.maximo ?? 4
   const enZona = (d) => distrito === 'Todos' || d === distrito
   const validas = calles.filter((c) => c.importancia <= maximo && enZona(c.distritos[0]))
   const idsValidas = new Set(validas.map((c) => c.id))
-  const mazos = crearTarjetas({ calles, lugares, ejes })
+  const mazos = crearTarjetas({ calles, lugares, ejes, zona })
   const deMazo = (mazo) => mazos[mazo].filter((t) => enZona(t.distrito) && (!t.enlace.includes('calle=') || idsValidas.has(Number(t.enlace.split('=')[1]))))
   const algunas = (lista, n) => barajar(lista, azar).slice(0, n)
   const mismoDistrito = (c) => calles.filter((x) => x.id !== c.id && x.distritos[0] === c.distritos[0])
@@ -155,6 +158,51 @@ function recetas({ calles, lugares, ejes }, { nivel, distrito }, azar) {
   }
 
   for (const t of mazos.lugares.filter((x) => enZona(x.distrito))) r.lugares.push(() => deTarjeta(t, mazos, 'lugares', azar))
+
+  // Zona de los parques de Granada (paso 2.5): sus tarjetas, y además "¿cuál de estos pueblos está en la
+  // zona?" y "¿con cuál limita?". No es de ningún distrito: solo sale con todos los distritos.
+  if (zona && distrito === 'Todos') {
+    for (const t of mazos.carreteras) r.carreteras.push(() => deTarjeta(t, mazos, 'carreteras', azar))
+    const pueblos = zona.municipios.features.map((f) => f.properties).filter((m) => m.nombre !== 'Granada')
+    const metros = (a, b) => Math.hypot((a[0] - b[0]) * 88800, (a[1] - b[1]) * 110540)
+    for (const m of pueblos) {
+      const enlace = `#/mapa?pueblo=${encodeURIComponent(m.nombre)}`
+      r.carreteras.push(() =>
+        pregunta(
+          {
+            id: `en-zona:${m.nombre}`,
+            tema: 'carreteras',
+            enunciado: '¿Cuál de estos pueblos está en la zona de los parques de Granada?',
+            correcta: m.nombre,
+            falsas: algunas(PUEBLOS_FUERA, 6),
+            explicacion: `${m.nombre} está en la zona (parte ${m.parte.toLowerCase()}). Los otros tres son de fuera.`,
+            enlace,
+          },
+          azar,
+        ),
+      )
+      // Las falsas, de los pueblos más cercanos que no son vecinos (vale cualquiera, pero así cuesta más)
+      const noVecinos = pueblos
+        .filter((o) => o.nombre !== m.nombre && !m.vecinos.includes(o.nombre))
+        .sort((a, b) => metros(a.centro, m.centro) - metros(b.centro, m.centro))
+        .slice(0, 6)
+        .map((o) => o.nombre)
+      r.carreteras.push(() =>
+        pregunta(
+          {
+            id: `limita:${m.nombre}`,
+            tema: 'carreteras',
+            enunciado: `¿Con cuál de estos pueblos limita ${m.nombre}?`,
+            correcta: algunas(m.vecinos, 1)[0],
+            falsas: noVecinos,
+            explicacion: `${m.nombre} limita con ${m.vecinos.join(', ')}.`,
+            enlace,
+          },
+          azar,
+        ),
+      )
+    }
+  }
   return r
 }
 

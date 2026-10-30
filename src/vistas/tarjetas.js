@@ -48,7 +48,8 @@ export async function abrir(contenedor) {
   const pagina = crear('div', { class: 'pagina' }, crear('p', { class: 'cargando-texto' }, 'Preparando las tarjetas…'))
   contenedor.append(pagina)
 
-  const [calles, lugares] = await Promise.all([cargar('calles'), cargar('lugares')])
+  const [calles, lugares, municipios, salidas] = await Promise.all(['calles', 'lugares', 'municipios', 'salidas'].map(cargar))
+  const zona = { municipios, salidas } // zona de los parques de Granada (paso 2.5)
   const estados = leer(CLAVES.estados, {})
   const ajustes = {
     mazos: MAZOS.map((m) => m.id),
@@ -58,6 +59,10 @@ export async function abrir(contenedor) {
     segundosTest: 20,
     ...leer(CLAVES.ajustes, {}),
   }
+  // Un mazo que no existía cuando se guardaron los ajustes sale ya marcado (el de la zona llegó en el paso 2.5)
+  const conocidos = ajustes.mazosConocidos ?? ['zona', 'extremos', 'sentido', 'cruces', 'lugares']
+  for (const m of MAZOS) if (!conocidos.includes(m.id) && !ajustes.mazos.includes(m.id)) ajustes.mazos.push(m.id)
+  ajustes.mazosConocidos = MAZOS.map((m) => m.id)
   let contador = leer(CLAVES.hoy, { fecha: hoy(), nuevas: 0 })
   const nuevasYaHoy = () => (contador.fecha === hoy() ? contador.nuevas : 0)
   const referenciaDe = buscadorDeReferencias(calles, lugares)
@@ -92,7 +97,7 @@ export async function abrir(contenedor) {
 
   // Las tarjetas se crean al momento con los ejes actuales (se pueden cambiar en la pantalla de Ejes)
   function mazosActuales() {
-    const mazos = crearTarjetas({ calles, lugares, ejes: ejesActuales(calles) })
+    const mazos = crearTarjetas({ calles, lugares, ejes: ejesActuales(calles), zona })
     const delDistrito = (t) => ajustes.distrito === 'Todos' || t.distrito === ajustes.distrito
     for (const id of Object.keys(mazos)) mazos[id] = mazos[id].filter(delDistrito)
     return mazos

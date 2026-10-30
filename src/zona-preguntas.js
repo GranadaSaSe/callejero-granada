@@ -1,6 +1,8 @@
 // Juego «Zona de los parques» (paso 2.5): preguntas sobre los pueblos, las salidas de autovía y las carreteras
-// de la zona de los parques de bomberos de Granada. No usa el navegador: se puede probar con Node.
+// de la zona de los parques de bomberos de Granada, y las tarjetas de repaso de esa zona. No usa el
+// navegador: se puede probar con Node.
 import { puntoEnAnillo } from '../scripts/lib/geo.mjs'
+import { textoAcceso } from '../scripts/lib/zona-datos.mjs'
 
 export const MODOS_ZONA = [
   { id: 'donde', nombre: 'Dónde está cada pueblo' },
@@ -181,4 +183,74 @@ export function prepararPregunta(p, { municipios, salidas }, azar = Math.random)
     respuesta: p.codigo,
     opciones: opciones(p.codigo, falsas(p.codigo, [...cerca, ...lejos])),
   }
+}
+
+// Tarjetas de repaso de la zona (mazo «carreteras»): cómo se llega a cada pueblo, a dónde lleva cada salida
+// y qué salida coger para cada destino, intercaladas. Cada una guarda en "datos.falsas" las respuestas
+// falsas más parecidas (las de los pueblos o salidas de alrededor), para el modo test y el examen.
+export function tarjetasZona({ municipios, salidas }) {
+  const porNombre = new Map(municipios.features.map((f) => [f.properties.nombre, f]))
+  const masCerca = (f) =>
+    municipios.features
+      .filter((o) => o !== f && o.properties.nombre !== 'Granada')
+      .sort((a, b) => {
+        const vecino = (o) => (f.properties.vecinos.includes(o.properties.nombre) ? 0 : 1)
+        return vecino(a) - vecino(b) || distancia(a.properties.centro, f.properties.centro) - distancia(b.properties.centro, f.properties.centro)
+      })
+  const enlacePueblo = (nombre) => `#/mapa?pueblo=${encodeURIComponent(nombre)}`
+  const enlaceSalida = (s) => `#/mapa?salida=${encodeURIComponent(s.id)}`
+  const tarjeta = (id, enlace, pregunta, respuesta, detalle, falsas) => ({
+    id: `carreteras:${id}`,
+    mazo: 'carreteras',
+    distrito: null,
+    enlace,
+    pregunta,
+    respuesta,
+    detalle,
+    datos: { falsas: [...new Set(falsas)].filter((x) => x && x !== respuesta).slice(0, 6) },
+  })
+  const datosZona = { municipios, salidas, carreteras: { features: [] } }
+
+  const accesos = municipios.features
+    .filter((f) => f.properties.nombre !== 'Granada' && f.properties.acceso)
+    .map((f) => {
+      const m = f.properties
+      return tarjeta(
+        `acceso:${m.nombre}`,
+        enlacePueblo(m.nombre),
+        `¿Cómo se llega desde Granada a ${m.nombre}${m.pueblo ? ` (${m.pueblo})` : ''}?`,
+        textoAcceso(m.acceso),
+        `Unos ${m.acceso.minutos} minutos desde el centro. Es el camino más rápido según OpenStreetMap; puede haber otros.`,
+        masCerca(f).map((o) => o.properties.acceso && textoAcceso(o.properties.acceso)),
+      )
+    })
+  const conCarteles = salidas.filter((s) => s.numero && utiles(s.destinos).length)
+  const cercanas = (s, valida) =>
+    salidas
+      .filter((o) => o.carretera === s.carretera && o !== s && o.numero && valida(o))
+      .sort((a, b) => Math.abs(valor(a.numero) - valor(s.numero)) - Math.abs(valor(b.numero) - valor(s.numero)))
+  const aDonde = conCarteles.map((s) =>
+    tarjeta(
+      `salida:${s.id}`,
+      enlaceSalida(s),
+      `${s.carretera}, salida ${s.numero}: ¿a dónde lleva?`,
+      textoSalida(s),
+      `Carteles: ${s.destinos.join(', ')}. Está en ${s.municipio}.`,
+      cercanas(s, (o) => utiles(o.destinos).length && utiles(o.destinos)[0] !== utiles(s.destinos)[0]).map(textoSalida),
+    ),
+  )
+  const coger = preguntasZona(datosZona, { modo: 'coger', parte: 'Toda la zona' }).map((p) =>
+    tarjeta(
+      `coger:${p.salida.carretera}|${p.destino}`,
+      enlaceSalida(p.salida),
+      `Por la ${p.salida.carretera}, ¿qué salida se coge para ${p.destino}?`,
+      `Salida ${p.salida.numero}`,
+      `La salida ${p.salida.numero} lleva a: ${p.salida.destinos.join(', ')}.`,
+      cercanas(p.salida, (o) => !o.destinos.includes(p.destino)).map((o) => `Salida ${o.numero}`),
+    ),
+  )
+  // Intercaladas, para que las tarjetas nuevas de cada día sean de las tres clases
+  const todas = []
+  for (let i = 0; i < Math.max(accesos.length, aDonde.length, coger.length); i++) todas.push(accesos[i], aDonde[i], coger[i])
+  return todas.filter(Boolean)
 }

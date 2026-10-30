@@ -51,7 +51,8 @@ const fecha = (iso) => new Date(iso).toLocaleString('es-ES', { dateStyle: 'short
 export async function abrir(contenedor) {
   const pagina = crear('div', { class: 'pagina' }, crear('p', { class: 'cargando-texto' }, 'Preparando el test…'))
   contenedor.append(pagina)
-  const [calles, lugares] = await Promise.all([cargar('calles'), cargar('lugares')])
+  const [calles, lugares, municipios, salidas] = await Promise.all(['calles', 'lugares', 'municipios', 'salidas'].map(cargar))
+  const zona = { municipios, salidas } // zona de los parques de Granada (paso 2.5)
   const ajustes = {
     temas: TEMAS.map((t) => t.id),
     nivel: 'medio',
@@ -61,6 +62,10 @@ export async function abrir(contenedor) {
     conTiempo: false,
     ...leer(CLAVES.ajustes, {}),
   }
+  // Un tema que no existía cuando se guardaron los ajustes sale ya marcado (el de la zona llegó en el paso 2.5)
+  const conocidos = ajustes.temasConocidos ?? ['zonas', 'extremos', 'sentido', 'cruces', 'lugares']
+  for (const t of TEMAS) if (!conocidos.includes(t.id) && !ajustes.temas.includes(t.id)) ajustes.temas.push(t.id)
+  ajustes.temasConocidos = TEMAS.map((t) => t.id)
   let pantalla = 'portada'
   let teclas = null // atajos de teclado mientras se hace el test
   let temporizador = null
@@ -191,7 +196,7 @@ export async function abrir(contenedor) {
 
   function empezar() {
     const preguntas = crearExamen(
-      { calles, lugares, ejes: ejesActuales(calles) },
+      { calles, lugares, ejes: ejesActuales(calles), zona },
       { temas: ajustes.temas, nivel: ajustes.nivel, distrito: ajustes.distrito, total: ajustes.total },
     )
     if (preguntas.length) examen(preguntas)

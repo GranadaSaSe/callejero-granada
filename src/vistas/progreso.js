@@ -55,7 +55,8 @@ const cifra = (numero, texto) => crear('div', { class: 'cifra' }, crear('strong'
 export async function abrir(contenedor) {
   const pagina = crear('div', { class: 'pagina' }, crear('p', { class: 'cargando-texto' }, 'Calculando tu progreso…'))
   contenedor.append(pagina)
-  const [calles, lugares] = await Promise.all([cargar('calles'), cargar('lugares')])
+  const [calles, lugares, municipios, salidas] = await Promise.all(['calles', 'lugares', 'municipios', 'salidas'].map(cargar))
+  const zona = { municipios, salidas } // zona de los parques de Granada (paso 2.5)
   let periodo = 30
   let editandoFecha = false
   let diaElegido = null
@@ -308,7 +309,7 @@ export async function abrir(contenedor) {
     // Se recalcula cada vez que se abre, por si se ha estudiado en otra pantalla
     mostrar() {
       diaElegido = null
-      mazos = crearTarjetas({ calles, lugares, ejes: ejesActuales(calles) })
+      mazos = crearTarjetas({ calles, lugares, ejes: ejesActuales(calles), zona })
       pintar()
     },
   }
