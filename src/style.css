@@ -1562,6 +1562,34 @@ li[data-ok='si'] .estado {
   font-size: 13px;
 }
 
+/* Tu progreso → Por zonas (paso 2.6): verde lo dominado y ámbar lo empezado, sobre el gris de lo que falta */
+.barra-zona {
+  display: flex;
+  height: 8px;
+  margin: 6px 0 4px;
+  border-radius: 4px;
+  background: var(--borde);
+  overflow: hidden;
+}
+
+.barra-zona .dominadas,
+.punto-leyenda.dominadas {
+  background: var(--verde);
+}
+
+.barra-zona .empezadas,
+.punto-leyenda.empezadas {
+  background: #e8a33c;
+}
+
+.punto-leyenda {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  vertical-align: baseline;
+}
+
 /* Jugar (Fase 2): pregunta arriba y panel abajo, sobre el mapa */
 
 .juego-arriba,

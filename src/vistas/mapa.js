@@ -17,6 +17,7 @@ import {
   TIPOS,
 } from '../notas.js'
 import { crearMapa, filtroCarretera, lineasParaNombres, NADA, puntosDePueblos, puntosDeSalidas, REDES } from '../mapa-base.js'
+import { fallosEnElMapa, leerGuardado } from '../progreso-zonas.js'
 
 const CLAVE_AJUSTES = 'callejero-mapa-capas'
 const PALABRAS_SENTIDO = { unico: 'sentido único', doble: 'doble sentido', peatonal: 'peatonal' }
@@ -531,6 +532,7 @@ export async function abrir(contenedor) {
     ]
     const buscarEn = (capas) => mapa.queryRenderedFeatures(caja, { layers: capas.filter((c) => mapa.getLayer(c)) })
     const nota = buscarEn(['notas'])[0]
+    const fallo = buscarEn(['fallos-circulos'])[0]
     const lugar = buscarEn(['lugares'])[0]
     const tramos = buscarEn(['calles', 'calles-peatonales'])
     const salida = buscarEn(['salidas'])[0]
@@ -539,6 +541,7 @@ export async function abrir(contenedor) {
     const municipio = buscarEn(['municipios-relleno']).find((f) => f.properties.nombre !== 'Granada')
     return {
       nota: nota && leerNotas().find((n) => n.id === nota.properties.id),
+      fallo: fallo?.properties,
       lugar: lugar && lugarPorId.get(lugar.properties.id),
       calle: callePorId.get(tramos.find((f) => callePorId.has(f.properties.via))?.properties.via),
       sinNombre: tramos.find((f) => f.properties.nombreOsm),
@@ -555,6 +558,7 @@ export async function abrir(contenedor) {
     const aqui = queHayEn(e.point)
     const punto = e.lngLat.toArray()
     if (aqui.nota) return verNota(aqui.nota)
+    if (aqui.fallo) return abrirFallo(aqui.fallo)
     if (aqui.lugar) return elegirLugar(aqui.lugar)
     if (aqui.salida) return elegirSalida(aqui.salida)
     if (aqui.calle) return elegirCalle(aqui.calle, false, punto)
@@ -689,6 +693,7 @@ export async function abrir(contenedor) {
     nombresCalles: true,
     nombresLugares: true,
     notas: true,
+    fallos: false,
     zonaParques: true,
     nombresZona: true,
     grupos: GRUPOS.map((g) => g.nombre),
@@ -705,9 +710,109 @@ export async function abrir(contenedor) {
     nombresCalles: ['nombres-principales', 'nombres-resto'],
     nombresLugares: ['lugares-nombres', 'rios-nombres'],
     notas: ['notas'],
+    fallos: ['fallos-calor', 'fallos-circulos', 'fallos-numeros'],
   }
+  // Mis fallos (paso 2.6): mapa de calor de lo fallado en tarjetas, test y juegos y, de cerca, un círculo por
+  // calle, lugar, pueblo o salida con el número de fallos. Se recalcula al encenderlo y al volver al mapa.
+  const VACIO_FALLOS = { type: 'FeatureCollection', features: [] }
+  let sitiosConFallos = VACIO_FALLOS
+  function anadirCapasFallos() {
+    mapa.addSource('fallos-calor', { type: 'geojson', data: VACIO_FALLOS })
+    mapa.addSource('fallos-sitios', { type: 'geojson', data: VACIO_FALLOS })
+    const capas = [
+      {
+        id: 'fallos-calor',
+        type: 'heatmap',
+        source: 'fallos-calor',
+        maxzoom: 17,
+        paint: {
+          // Unos pocos fallos ya se tienen que ver (los de una calle van repartidos a lo largo de ella)
+          'heatmap-weight': ['interpolate', ['linear'], ['get', 'peso'], 0, 0, 0.3, 0.5, 2, 1],
+          'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 9, 1.5, 13, 2.5, 16, 3],
+          'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 9, 12, 13, 22, 16, 40],
+          'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 15, 0.85, 17, 0],
+          'heatmap-color': [
+            'interpolate',
+            ['linear'],
+            ['heatmap-density'],
+            0,
+            'rgba(255, 224, 130, 0)',
+            0.05,
+            'rgba(255, 193, 7, 0.45)',
+            0.35,
+            'rgba(244, 81, 30, 0.75)',
+            0.8,
+            'rgba(183, 28, 28, 0.9)',
+          ],
+        },
+      },
+      {
+        id: 'fallos-circulos',
+        type: 'circle',
+        source: 'fallos-sitios',
+        minzoom: 14.5,
+        paint: {
+          'circle-color': '#b71c1c',
+          'circle-radius': ['interpolate', ['linear'], ['get', 'fallos'], 1, 9, 10, 15],
+          'circle-stroke-color': '#ffffff',
+          'circle-stroke-width': 2,
+        },
+      },
+      {
+        id: 'fallos-numeros',
+        type: 'symbol',
+        source: 'fallos-sitios',
+        minzoom: 14.5,
+        layout: {
+          'text-field': ['to-string', ['get', 'fallos']],
+          'text-font': ['Noto Sans Bold'],
+          'text-size': 12,
+          'text-allow-overlap': true,
+          'text-ignore-placement': true,
+        },
+        paint: { 'text-color': '#ffffff' },
+      },
+    ]
+    for (const capa of capas) mapa.addLayer(capa, 'notas')
+    for (const capa of ['fallos-circulos']) {
+      mapa.on('mouseenter', capa, () => (mapa.getCanvas().style.cursor = 'pointer'))
+      mapa.on('mouseleave', capa, () => (mapa.getCanvas().style.cursor = ''))
+    }
+  }
+  function actualizarFallos() {
+    const { calor, sitios } = fallosEnElMapa({ calles, lugares, tramos, municipios, salidas }, leerGuardado())
+    sitiosConFallos = sitios
+    mapa.getSource('fallos-calor')?.setData(calor)
+    mapa.getSource('fallos-sitios')?.setData(sitios)
+  }
+  // Un círculo de fallos abre la ficha de lo fallado
+  function abrirFallo({ tipo, id }) {
+    if (tipo === 'c' && callePorId.has(Number(id))) elegirCalle(callePorId.get(Number(id)))
+    else if (tipo === 'l' && lugarPorId.has(id)) elegirLugar(lugarPorId.get(id))
+    else if (tipo === 'p' && municipioPorNombre.has(id)) elegirMunicipio(municipioPorNombre.get(id))
+    else if (tipo === 's' && salidaPorId.has(id)) elegirSalida(salidaPorId.get(id))
+  }
+  // #/mapa?fallos=1 (desde Tu progreso): enciende la capa y encuadra lo fallado
+  function verFallos() {
+    ajustes.fallos = true
+    aplicarAjustes()
+    panelCapas.querySelector('input[data-ajuste="fallos"]').checked = true
+    if (!sitiosConFallos.features.length) {
+      return mostrarFicha([
+        crear('p', { class: 'ficha-tipo' }, 'Mis fallos'),
+        crear('h2', {}, 'Todavía no hay fallos apuntados'),
+        crear('p', {}, 'Cuando falles algo en las tarjetas, el test o los juegos, aquí verás dónde: más rojo cuanto más falles.'),
+      ])
+    }
+    cerrarFicha()
+    const limites = new LngLatBounds()
+    for (const f of sitiosConFallos.features) limites.extend(f.geometry.coordinates)
+    mapa.fitBounds(limites, { padding: margen(), maxZoom: 15, duration: 700, bearing: mapa.getBearing() })
+  }
+
   function aplicarAjustes() {
     guardarAjustes(ajustes)
+    if (ajustes.fallos) actualizarFallos()
     for (const [ajuste, capas] of Object.entries(CAPAS)) {
       for (const capa of capas) mapa.setLayoutProperty(capa, 'visibility', ajustes[ajuste] ? 'visible' : 'none')
     }
@@ -748,6 +853,8 @@ export async function abrir(contenedor) {
     casillaDe('sentidos', 'Flechas de sentido'),
     casillaDe('dudosos', 'Sentidos por revisar (?)'),
     casillaDe('notas', 'Notas (mías en rojo, de compañeros en azul)'),
+    casillaDe('fallos', 'Mis fallos (mapa de calor)'),
+    crear('p', { class: 'ayuda-capas' }, 'Más rojo, más fallos: en tarjetas, test y juegos. De cerca, cada círculo dice cuántas veces has fallado ese sitio.'),
     crear(
       'p',
       { class: 'ayuda-capas ayuda-giro' },
@@ -798,6 +905,7 @@ export async function abrir(contenedor) {
 
   const cargado = new Promise((listo) =>
     mapa.on('load', () => {
+      anadirCapasFallos()
       aplicarAjustes()
       aviso.remove()
       listo()
@@ -806,10 +914,14 @@ export async function abrir(contenedor) {
 
   return {
     // #/mapa?calle=123 abre la ficha de esa calle; #/mapa?lugar=n456, la de ese lugar; #/mapa?nota=abc, esa nota;
-    // #/mapa?pueblo=Padul, #/mapa?carretera=A-44 y #/mapa?salida=A-44|144, los de la zona de los parques
+    // #/mapa?pueblo=Padul, #/mapa?carretera=A-44 y #/mapa?salida=A-44|144, los de la zona de los parques;
+    // #/mapa?fallos=1, el mapa de calor de los fallos
     async mostrar(parametros) {
       mapa.resize()
       await cargado
+      // Lo fallado puede haber cambiado en otra pantalla
+      if (ajustes.fallos) actualizarFallos()
+      if (parametros?.get('fallos')) return verFallos()
       const calle = callePorId.get(Number(parametros?.get('calle')))
       const lugar = lugarPorId.get(parametros?.get('lugar'))
       const nota = leerNotas().find((n) => n.id === parametros?.get('nota') && n.punto)

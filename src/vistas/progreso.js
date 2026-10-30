@@ -1,5 +1,6 @@
 // Tu progreso (paso 1.10): cuenta atrás hasta el examen, racha de días seguidos estudiando y aciertos
-// por tema. Todo sale de lo guardado en este dispositivo (ver src/actividad.js).
+// por tema; y, por zonas (paso 2.6), cuántas calles de cada distrito dominas y el enlace al mapa de tus
+// fallos. Todo sale de lo guardado en este dispositivo (ver src/actividad.js y src/progreso-zonas.js).
 import {
   aciertosPorTema,
   diasHasta,
@@ -16,7 +17,8 @@ import {
 import { crear, miles, rellenar } from '../crear.js'
 import { cargar } from '../datos.js'
 import { CLAVES_EJES, ejesActuales, leerConjunto } from '../ejes-lista.js'
-import { TEMAS } from '../examen-datos.js'
+import { NIVELES, TEMAS } from '../examen-datos.js'
+import { leerGuardado, progresoPorZonas } from '../progreso-zonas.js'
 import { aprendida } from '../repaso.js'
 import { crearTarjetas } from '../tarjetas-datos.js'
 
@@ -55,9 +57,10 @@ const cifra = (numero, texto) => crear('div', { class: 'cifra' }, crear('strong'
 export async function abrir(contenedor) {
   const pagina = crear('div', { class: 'pagina' }, crear('p', { class: 'cargando-texto' }, 'Calculando tu progreso…'))
   contenedor.append(pagina)
-  const [calles, lugares, municipios, salidas] = await Promise.all(['calles', 'lugares', 'municipios', 'salidas'].map(cargar))
+  const [calles, lugares, municipios, salidas, tramos] = await Promise.all(['calles', 'lugares', 'municipios', 'salidas', 'tramos'].map(cargar))
   const zona = { municipios, salidas } // zona de los parques de Granada (paso 2.5)
   let periodo = 30
+  let nivelZonas = 'medio' // qué calles cuentan en «Por zonas»
   let editandoFecha = false
   let diaElegido = null
   let mazos = {} // todas las tarjetas, por mazo (se rehacen al abrir: los ejes pueden haber cambiado)
@@ -262,6 +265,67 @@ export async function abrir(contenedor) {
     )
   }
 
+  // Por zonas (paso 2.6): calles dominadas de cada distrito y pueblos dominados de cada parte de la zona
+  function tarjetaZonas() {
+    const { distritos, partes } = progresoPorZonas({ calles, lugares, tramos, municipios, salidas }, leerGuardado(), { nivel: nivelZonas })
+    const fila = (z, cosas) => {
+      const pct = z.total ? porcentaje(z.dominadas, z.total) : 0
+      const empezadas = z.vistas - z.dominadas
+      return crear(
+        'li',
+        { class: 'fila-tema' },
+        crear(
+          'div',
+          { class: 'fila-tema-cabecera' },
+          crear('strong', {}, z.nombre),
+          crear('span', {}, `${pct} % dominado · ${miles(z.dominadas)} de ${plural(z.total, cosas[0], cosas[1])}`),
+        ),
+        crear(
+          'div',
+          { class: 'barra-zona', role: 'img', 'aria-label': `${pct} % dominado, ${empezadas} empezadas` },
+          z.dominadas > 0 && crear('div', { class: 'dominadas', style: `width: ${(100 * z.dominadas) / z.total}%` }),
+          empezadas > 0 && crear('div', { class: 'empezadas', style: `width: ${(100 * empezadas) / z.total}%` }),
+        ),
+        z.vistas > 0 && crear('small', {}, `Vistas: ${miles(z.vistas)} · sin dominar todavía: ${miles(empezadas)}`),
+      )
+    }
+    return crear(
+      'section',
+      { class: 'tarjeta' },
+      crear('h2', {}, 'Por zonas'),
+      crear(
+        'div',
+        { class: 'chips filtro-periodo' },
+        NIVELES.map((n) =>
+          crear(
+            'button',
+            {
+              class: 'chip',
+              'aria-pressed': String(n.id === nivelZonas),
+              onclick: () => {
+                nivelZonas = n.id
+                pintar()
+              },
+            },
+            n.nombre,
+          ),
+        ),
+      ),
+      crear('ul', { class: 'lista-temas' }, distritos.map((d) => fila(d, ['calle', 'calles']))),
+      crear('h3', {}, 'Zona de los parques'),
+      crear('ul', { class: 'lista-temas' }, partes.map((p) => fila(p, ['pueblo', 'pueblos']))),
+      crear(
+        'p',
+        { class: 'ficha-nota' },
+        crear('span', { class: 'punto-leyenda dominadas' }),
+        ' dominadas ',
+        crear('span', { class: 'punto-leyenda empezadas' }),
+        ' empezadas. Dominas una calle (o un pueblo) cuando la tienes aprendida en tarjetas o la has acertado al menos dos veces en los juegos, y la última vez que salió no la fallaste.',
+      ),
+      crear('a', { class: 'boton secundario', href: '#/mapa?fallos=1' }, 'Ver mis fallos en el mapa'),
+    )
+  }
+
   function tarjetaResumen(estados) {
     const historial = leer('callejero-examen-historial', [])
     const mejorNota = historial.length ? Math.max(...historial.map((t) => t.nota)) : null
@@ -301,6 +365,7 @@ export async function abrir(contenedor) {
       cuentaAtras(),
       tarjetaRacha(dias),
       tarjetaTemas(dias, estados),
+      tarjetaZonas(),
       tarjetaResumen(estados),
     )
   }
