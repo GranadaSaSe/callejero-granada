@@ -36,6 +36,7 @@ import {
   simplificar,
 } from './lib/geo.mjs'
 import { clavesNombre, normalizar } from './lib/nombres.mjs'
+import { anadirSegmento, crearRed, nivelDeVia, pasoLimitado } from './lib/red-datos.mjs'
 import { accesosDesdeGranada, codigos, municipiosDeLaZona, salidasDeLaZona, textoAcceso } from './lib/zona-datos.mjs'
 import { ZONA_PARQUES } from './lib/zona-parques.mjs'
 
@@ -57,11 +58,12 @@ const separar = (valor) =>
 // Plaza del Carmen: sin portales, se supone que la calle empieza en el extremo más cercano al centro
 const AYUNTAMIENTO = [-3.5988, 37.1734]
 
-const [limites, callesOsm, edificiosOsm, carreterasOsm, municipiosOsm, fondoOsm, viales, tramosCdau, portales] =
+const [limites, callesOsm, restriccionesOsm, edificiosOsm, carreterasOsm, municipiosOsm, fondoOsm, viales, tramosCdau, portales] =
   await Promise.all(
     [
       'osm-limites',
       'osm-calles',
+      'osm-restricciones',
       'osm-edificios',
       'osm-carreteras',
       'osm-municipios',
@@ -183,7 +185,14 @@ for (const w of callesOsm.elements) {
   const t = w.tags
   const unico =
     ['yes', '1', 'true'].includes(t.oneway) || (t.junction === 'roundabout' && t.oneway !== 'no') ? 1 : t.oneway === '-1' ? -1 : 0
-  const dato = { unico, peatonal: PEATONALES.has(t.highway), nombre: t.name ?? null, clase: t.highway }
+  const dato = {
+    unico,
+    peatonal: PEATONALES.has(t.highway),
+    nombre: t.name ?? null,
+    clase: t.highway,
+    limitado: pasoLimitado(t),
+    nivel: nivelDeVia(t),
+  }
   const linea = w.geometry.map((p) => [p.lon, p.lat])
   for (let i = 1; i < linea.length; i++) indiceOsm.anadir(linea[i - 1], linea[i], dato)
 }
@@ -198,7 +207,7 @@ function parejaOsm(linea) {
     const cos = cosenoEntre(seg, [c.a, c.b])
     if (d < 12 && Math.abs(cos) > 0.8 && (!mejor || d < mejor.d)) mejor = { d, cos, ...c.dato }
   }
-  if (!mejor) return { sentido: null, nombre: null, clase: null }
+  if (!mejor) return { sentido: null, nombre: null, clase: null, limitado: false, nivel: 0 }
   const sentido = mejor.peatonal
     ? 'peatonal'
     : mejor.unico === 0
@@ -206,7 +215,28 @@ function parejaOsm(linea) {
       : mejor.unico * Math.sign(mejor.cos) > 0
         ? 'directo'
         : 'inverso'
-  return { sentido, nombre: mejor.nombre, clase: mejor.clase }
+  return { sentido, nombre: mejor.nombre, clase: mejor.clase, limitado: mejor.limitado, nivel: mejor.nivel }
+}
+
+// Un bulevar (la Carrera de la Virgen, por ejemplo): el callejero dibuja una sola línea por el centro, sin decir el
+// sentido, y OpenStreetMap una calzada de sentido único a cada lado. Se circula en los dos sentidos. Aquí se mira
+// OpenStreetMap; que el callejero no dibuje otra línea al lado (una por calzada) se mira con todos los tramos ya leídos.
+function calzadasALosLados(linea) {
+  const seg = segmentoCentral(linea)
+  const centro = medio(...seg)
+  const [ax, ay] = aMetros(seg[0])
+  const [bx, by] = aMetros(seg[1])
+  const flujos = new Set()
+  for (const c of indiceOsm.cercanos(centro)) {
+    if (c.dato.peatonal || !c.dato.unico) continue
+    const d = distanciaASegmento(centro, c.a, c.b)
+    const cos = cosenoEntre(seg, [c.a, c.b])
+    if (d < 3 || d > 20 || Math.abs(cos) < 0.8) continue
+    const [px, py] = aMetros(medio(c.a, c.b))
+    const lado = Math.sign((bx - ax) * (py - ay) - (by - ay) * (px - ax))
+    flujos.add(`${lado},${c.dato.unico * Math.sign(cos)}`)
+  }
+  return (flujos.has('1,1') && flujos.has('-1,-1')) || (flujos.has('1,-1') && flujos.has('-1,1'))
 }
 
 const tramos = []
@@ -225,13 +255,30 @@ for (const f of tramosCdau.features) {
     osm: osm.sentido,
     nombreOsm: osm.nombre,
     clase: osm.clase,
+    limitado: osm.limitado,
+    nivel: osm.nivel,
     revisado,
     sentido: revisado ?? cdau ?? osm.sentido ?? 'desconocido',
+    bulevar: !cdau && !revisado && calzadasALosLados(linea),
     dudoso: !revisado && Boolean(cdau && osm.sentido && cdau !== osm.sentido),
     longitud: longitud(linea),
   }
   tramos.push(tramo)
   vias.get(via)?.tramos.push(tramo)
+}
+
+const indiceParalelas = crearIndice(40)
+for (const t of tramos) {
+  if (t.cdau === 'peatonal') continue
+  for (let i = 1; i < t.linea.length; i++) anadirSegmento(indiceParalelas, t.linea[i - 1], t.linea[i], t)
+}
+for (const t of tramos.filter((x) => x.bulevar)) {
+  const seg = segmentoCentral(t.linea)
+  const centro = medio(...seg)
+  t.bulevar = !indiceParalelas
+    .cercanos(centro)
+    .some((c) => c.dato !== t && distanciaASegmento(centro, c.a, c.b) < 22 && Math.abs(cosenoEntre(seg, [c.a, c.b])) > 0.9)
+  if (t.bulevar) t.sentido = 'doble'
 }
 
 // El CDAU escribe a veces los nombres sin tildes ni artículos ("Camino Ronda"). Si OpenStreetMap llama
@@ -633,6 +680,17 @@ await guardar(
   ),
 )
 
+// Red de calles para calcular trayectos (paso 3.1): sentidos, cruces y giros prohibidos
+for (const t of tramos) t.importancia = importanciaDeTramo(t)
+const { red, informe: informeRed } = crearRed({
+  tramos,
+  viasOsm: callesOsm.elements.filter((e) => e.type === 'way'),
+  restricciones: restriccionesOsm.elements,
+  nombreDe: (via) => nombreVia(via) ?? null,
+  importanciaDeClase: (clase) => IMPORTANCIA[clase] ?? 6,
+})
+await guardar('red.json', red)
+
 // Tramos dudosos para el mapa de revisión, de las calles principales a las secundarias.
 // "directo" e "inverso" se refieren al sentido en que está dibujada la línea (del primer punto al último).
 const dudosos = tramos
@@ -939,6 +997,7 @@ const lineasInforme = [
   `- ${miles(calles.length)} calles con nombre oficial (CDAU); ${[...vias.values()].filter((v) => v.sinNombre).length} vías sin nombre aparte.`,
   `- ${miles(tramos.length)} tramos; ${tramos.filter((t) => t.via === null).length} sin calle asignada.`,
   `- Sentido de circulación según: ${porFuente.map(([f, n]) => `${f} ${miles(n)}`).join(', ')}.`,
+  `- ${miles(tramos.filter((t) => t.bulevar).length)} tramos sin sentido en el CDAU son de doble sentido por ser bulevares (una calzada de sentido único a cada lado en OpenStreetMap): ${unicos(tramos.filter((t) => t.bulevar).map((t) => nombreVia(t.via)).filter(Boolean)).sort((x, y) => x.localeCompare(y, 'es')).join(', ')}.`,
   `- ${miles(tramos.filter((t) => t.revisado).length)} tramos ya revisados a mano en el mapa de revisión.`,
   `- **${miles(tramos.filter((t) => t.dudoso).length)} tramos dudosos**: el CDAU y OpenStreetMap dicen cosas distintas. Hay que revisarlos (paso 1.3).`,
   '',
@@ -966,6 +1025,15 @@ const lineasInforme = [
   '| 322, 332 | Sentido único, al contrario de como está dibujado |',
   '| 333 | Doble sentido |',
   '| 330 | Peatonal |',
+  '',
+  '## Red de calles para los trayectos',
+  '',
+  `- ${miles(informeRed.tramos)} tramos por los que se circula y ${miles(informeRed.cruces)} cruces; ${miles(informeRed.soldados)} cruces unidos porque el callejero no corta la otra calle.`,
+  `- ${miles(informeRed.anadidas)} trozos (${miles(informeRed.metrosAnadidos)} m) que no están en el callejero, añadidos desde OpenStreetMap: carreteras, enlaces y caminos de las afueras.`,
+  `- ${miles(informeRed.enElTrozoMayor)} cruces (${Math.round((informeRed.enElTrozoMayor / informeRed.cruces) * 100)} %) se comunican todos entre sí respetando los sentidos. El resto son sobre todo calles sin salida de un solo sentido, urbanizaciones y errores de sentido.`,
+  `- Giros prohibidos de OpenStreetMap: ${informeRed.giros.aplicados} aplicados de ${informeRed.giros.total} (${informeRed.giros.sinBrazo + informeRed.giros.sinCruce} sin un cruce parecido en el callejero, ${informeRed.giros.fuera} con una calle sin datos, ${informeRed.giros.viaCalle} que pasan por una calle entera, ${informeRed.giros.quitados} que no cuentan: los «excepto autobús» de las calles sin limitación y los de Gran Vía, que es una calle normal).`,
+  `- ${miles(informeRed.dudosos)} tramos dudosos o sin sentido conocido: no se usarán en las preguntas de trayectos.`,
+  `- ${miles(informeRed.limitados)} tramos con el paso limitado según OpenStreetMap (residentes, autobús y taxi, privados): las rutas solo pasan por ellos si no hay otro camino. Gran Vía, Reyes Católicos, Recogidas y Antonio Dalmases no cuentan: se pasa por ellas sin limitación.`,
   '',
   '## Lugares de interés',
   '',
