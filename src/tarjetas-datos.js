@@ -67,7 +67,6 @@ export function crearTarjetas({ calles, lugares, ejes, zona = null }) {
         mazo: 'extremos',
         pregunta: `¿Dónde empieza y dónde termina ${c.nombre}?`,
         respuesta: `Empieza en ${juntarO(c.inicio)} y termina en ${juntarO(c.fin)}`,
-        detalle: c.numeros && c.numeros[1] > 1 ? `Números del ${Math.max(1, c.numeros[0])} al ${c.numeros[1]}.` : null,
         datos: { inicio: c.inicio, fin: c.fin, cruces: c.cruces },
       })
     }

@@ -69,7 +69,7 @@ function proyectar(p, a, b) {
 function viasQueFaltan(tramos, conCoche, viasOsm, importanciaDeClase) {
   const todos = crearIndice(40)
   // Una línea que solo OpenStreetMap llama peatonal no cuenta: puede ser el paseo central de un bulevar cuyas calzadas
-  // no están en el callejero (la Carrera de la Virgen). Lo peatonal según el callejero o la revisión sí cuenta.
+  // no están en el callejero. Lo peatonal según el callejero o la revisión sí cuenta.
   const cuentan = tramos.filter((t) => t.sentido !== 'peatonal' || t.cdau === 'peatonal' || t.revisado === 'peatonal')
   for (const t of cuentan) for (let i = 1; i < t.linea.length; i++) anadirSegmento(todos, t.linea[i - 1], t.linea[i], t)
   const coche = crearIndice(40)

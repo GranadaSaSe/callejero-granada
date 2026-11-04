@@ -238,8 +238,6 @@ export async function abrir(contenedor) {
         dato('Empieza en', listaCalles(c.inicio, c)),
         dato('Termina en', listaCalles(c.fin, c)),
         dato('Sentido', textoSentido(c)),
-        c.numeros && dato('Números', `del ${c.numeros[0]} al ${c.numeros[1]}`),
-        c.codigosPostales.length > 0 && dato('Código postal', c.codigosPostales.join(', ')),
         dato('Longitud', `${miles(c.longitud)} m`),
       ),
       c.cruces.length > 0 && [
