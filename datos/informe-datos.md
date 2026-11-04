@@ -51,9 +51,9 @@ Códigos de circulación del CDAU, deducidos comparando cada tramo con OpenStree
 
 ## Red de calles para los trayectos
 
-- 8862 tramos por los que se circula y 6481 cruces; 638 cruces unidos porque el callejero no corta la otra calle.
-- 325 trozos (46.009 m) que no están en el callejero, añadidos desde OpenStreetMap: carreteras, enlaces y caminos de las afueras.
-- 5892 cruces (91 %) se comunican todos entre sí respetando los sentidos. El resto son sobre todo calles sin salida de un solo sentido, urbanizaciones y errores de sentido.
+- 8876 tramos por los que se circula y 6489 cruces; 645 cruces unidos porque el callejero no corta la otra calle.
+- 333 trozos (46.820 m) que no están en el callejero, añadidos desde OpenStreetMap: carreteras, enlaces y caminos de las afueras.
+- 5956 cruces (92 %) se comunican todos entre sí respetando los sentidos. El resto son sobre todo calles sin salida de un solo sentido, urbanizaciones y errores de sentido.
 - Giros prohibidos de OpenStreetMap: 346 aplicados de 469 (79 sin un cruce parecido en el callejero, 21 con una calle sin datos, 4 que pasan por una calle entera, 19 que no cuentan: los «excepto autobús» de las calles sin limitación y los de Gran Vía, que es una calle normal).
 - 1202 tramos dudosos o sin sentido conocido: no se usarán en las preguntas de trayectos.
 - 418 tramos con el paso limitado según OpenStreetMap (residentes, autobús y taxi, privados): las rutas solo pasan por ellos si no hay otro camino. Gran Vía, Reyes Católicos, Recogidas y Antonio Dalmases no cuentan: se pasa por ellas sin limitación.

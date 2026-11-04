@@ -218,8 +218,8 @@ function parejaOsm(linea) {
   return { sentido, nombre: mejor.nombre, clase: mejor.clase, limitado: mejor.limitado, nivel: mejor.nivel }
 }
 
-// Un bulevar (la Carrera de la Virgen, por ejemplo): el callejero dibuja una sola línea por el centro, sin decir el
-// sentido, y OpenStreetMap una calzada de sentido único a cada lado. Se circula en los dos sentidos. Aquí se mira
+// Un bulevar: el callejero dibuja una sola línea por el centro, sin decir el sentido, y OpenStreetMap una calzada de
+// sentido único a cada lado, una en cada sentido. Se circula en los dos sentidos. Aquí se mira
 // OpenStreetMap; que el callejero no dibuje otra línea al lado (una por calzada) se mira con todos los tramos ya leídos.
 function calzadasALosLados(linea) {
   const seg = segmentoCentral(linea)

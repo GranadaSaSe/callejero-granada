@@ -23,6 +23,9 @@ const SEPARACION_M = 15
 const CUBIERTO_M = 12
 const ENGANCHE_M = 15
 const CLASES_CON_COCHE = /^((motorway|trunk|primary|secondary|tertiary)(_link)?|unclassified|residential)$/
+// Vías de OpenStreetMap que se añaden aunque casi toda ella esté en el callejero, porque le falta el final: el callejero
+// deja Plaza del Humilladero a 30 m de Acera del Darro, y sin ese trozo el centro no tiene salida.
+const INCOMPLETAS = new Set([179959896])
 
 // Calles con el paso limitado según OpenStreetMap (zonas de residentes, autobús y taxi, privadas...)
 const LIMITADO = new Set(['no', 'private', 'permit', 'destination', 'designated', 'customers', 'delivery'])
@@ -65,7 +68,10 @@ function proyectar(p, a, b) {
 // Vías de OpenStreetMap que no están en el callejero, partidas de cruce a cruce y enganchadas a sus calles
 function viasQueFaltan(tramos, conCoche, viasOsm, importanciaDeClase) {
   const todos = crearIndice(40)
-  for (const t of tramos) for (let i = 1; i < t.linea.length; i++) anadirSegmento(todos, t.linea[i - 1], t.linea[i], t)
+  // Una línea que solo OpenStreetMap llama peatonal no cuenta: puede ser el paseo central de un bulevar cuyas calzadas
+  // no están en el callejero (la Carrera de la Virgen). Lo peatonal según el callejero o la revisión sí cuenta.
+  const cuentan = tramos.filter((t) => t.sentido !== 'peatonal' || t.cdau === 'peatonal' || t.revisado === 'peatonal')
+  for (const t of cuentan) for (let i = 1; i < t.linea.length; i++) anadirSegmento(todos, t.linea[i - 1], t.linea[i], t)
   const coche = crearIndice(40)
   for (const t of conCoche) for (let i = 1; i < t.linea.length; i++) anadirSegmento(coche, t.linea[i - 1], t.linea[i], t)
   const vias = viasOsm.filter((w) => CLASES_CON_COCHE.test(w.tags.highway) && !pasoLimitado(w.tags))
@@ -97,7 +103,7 @@ function viasQueFaltan(tramos, conCoche, viasOsm, importanciaDeClase) {
     for (let i = 1; i < puntos.length; i++) {
       if (i < puntos.length - 1 && uso.get(w.nodes[i]) < 2) continue
       const linea = puntos.slice(ini, i + 1)
-      if (estaEnElCallejero(linea)) conCalle.add(w.nodes[ini]).add(w.nodes[i])
+      if (!INCOMPLETAS.has(w.id) && estaEnElCallejero(linea)) conCalle.add(w.nodes[ini]).add(w.nodes[i])
       else faltan.push({ w, linea, nodoA: w.nodes[ini], nodoB: w.nodes[i] })
       ini = i
     }
