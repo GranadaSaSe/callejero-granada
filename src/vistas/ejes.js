@@ -1,7 +1,7 @@
 // Ejes principales (paso 1.5): las grandes vías de Granada y las calles que se encuentran en cada una,
 // en orden, como las paradas de una línea de metro. Cada calle que cruza aparece a la izquierda o a la
 // derecha según el lado por el que sale, yendo del inicio al final del eje.
-import { crear, miles, normalizar, rellenar } from '../crear.js'
+import { crear, normalizar, rellenar } from '../crear.js'
 import { cargar } from '../datos.js'
 import {
   CLAVES_EJES as CLAVES,
@@ -113,7 +113,7 @@ export async function abrir(contenedor) {
                   'a',
                   { class: 'eje', href: `#/ejes?id=${c.id}` },
                   crear('strong', {}, c.nombre),
-                  crear('span', {}, `${c.cruces.length} cruces · ${miles(c.longitud)} m`),
+                  crear('span', {}, `${c.cruces.length} cruces`),
                   sabidos.has(c.id) && crear('em', {}, 'Sabido'),
                 ),
               ),
@@ -188,7 +188,7 @@ export async function abrir(contenedor) {
       crear('a', { class: 'volver', href: '#/ejes' }, '← Todos los ejes'),
       crear('p', { class: 'etiqueta' }, c.distritos.join(' · ')),
       crear('h1', {}, c.nombre),
-      crear('p', { class: 'intro' }, `${miles(c.longitud)} m · ${c.cruces.length} calles que cruza · ${textoSentido(c)}`),
+      crear('p', { class: 'intro' }, `${c.cruces.length} calles que cruza · ${textoSentido(c)}`),
       crear(
         'div',
         { class: 'acciones-eje' },

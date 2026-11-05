@@ -4,7 +4,7 @@
 // Se dibuja solo con los datos de la app, así que funciona sin internet. Al tocar una calle, un lugar, un
 // pueblo, una carretera o una salida se abre su ficha, y el buscador lleva a cualquiera de ellos.
 import { LngLatBounds } from 'maplibre-gl'
-import { crear, miles, normalizar } from '../crear.js'
+import { crear, normalizar } from '../crear.js'
 import { cargar, GRUPOS, grupoDe } from '../datos.js'
 import {
   alCambiarNotas,
@@ -238,7 +238,6 @@ export async function abrir(contenedor) {
         dato('Empieza en', listaCalles(c.inicio, c)),
         dato('Termina en', listaCalles(c.fin, c)),
         dato('Sentido', textoSentido(c)),
-        dato('Longitud', `${miles(c.longitud)} m`),
       ),
       c.cruces.length > 0 && [
         crear('h3', {}, `Calles que cruza, en orden (${c.cruces.length})`),
