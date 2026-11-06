@@ -1,6 +1,9 @@
 // Test tipo examen (paso 1.7): preguntas a, b, c, d por temas, con penalización por fallo y nota sobre
 // 10, como en la oposición. Se puede dejar en blanco, marcar dudosas y volver atrás. Al entregar se ve la
 // corrección de cada pregunta con su explicación y un enlace al mapa.
+// Simulacro de examen (paso 3.6): 55 preguntas de todos los temas (50 que cuentan y 5 de reserva al final),
+// 60 minutos y penalización de 1/3 o 1/2. Análisis de dudosas (paso 3.7): al entregar, la nota con y sin las
+// dudosas contestadas; en la portada, cuántas de las dudosas que contestas aciertas y si te compensa.
 import { apuntar } from '../actividad.js'
 import { crear, rellenar } from '../crear.js'
 import { cargar } from '../datos.js'
@@ -28,6 +31,10 @@ const TEXTO_PENALIZACION = new Map([
 const LETRAS = ['a', 'b', 'c', 'd']
 const NOMBRE_TEMA = Object.fromEntries(TEMAS.map((t) => [t.id, t.nombre]))
 const SEGUNDOS_POR_PREGUNTA = 72 // 60 minutos para 50 preguntas
+const SIMULACRO = { cuentan: 50, reserva: 5, segundos: 60 * 60 }
+// Con cuatro opciones y una penalización p, contestar al azar compensa si se acierta más de p / (1 + p)
+const UMBRAL_DUDOSAS = (p) => p / (1 + p)
+const porcentaje = (x) => `${Math.round(x * 100)} %`
 
 function leer(clave, porDefecto) {
   try {
@@ -61,6 +68,8 @@ export async function abrir(contenedor) {
     total: 20,
     penalizacion: 1 / 3,
     conTiempo: false,
+    penalizacionSimulacro: 1 / 3,
+    nivelSimulacro: 'medio',
     ...leer(CLAVES.ajustes, {}),
   }
   // Un tema que no existía cuando se guardaron los ajustes sale ya marcado (el de la zona llegó en el paso 2.5)
@@ -121,9 +130,42 @@ export async function abrir(contenedor) {
         ),
       )
 
+    // Análisis de dudosas (paso 3.7): lo apuntado en cada test
+    const conDudosas = historial.filter((h) => h.dudosas?.contestadas > 0)
+    const dudosasTotal = conDudosas.reduce(
+      (s, h) => ({ contestadas: s.contestadas + h.dudosas.contestadas, bien: s.bien + h.dudosas.bien, aporte: s.aporte + h.dudosas.aporte }),
+      { contestadas: 0, bien: 0, aporte: 0 },
+    )
+    const acierto = dudosasTotal.contestadas ? dudosasTotal.bien / dudosasTotal.contestadas : 0
+
     rellenar(
       pagina,
       crear('h1', {}, 'Test tipo examen'),
+      crear(
+        'section',
+        { class: 'tarjeta tarjeta-simulacro' },
+        crear('h2', {}, 'Simulacro de examen'),
+        crear(
+          'p',
+          {},
+          `Como el día del examen: ${SIMULACRO.cuentan + SIMULACRO.reserva} preguntas de todos los temas y de toda Granada ` +
+            `(${SIMULACRO.cuentan} que cuentan y ${SIMULACRO.reserva} de reserva al final), ${SIMULACRO.segundos / 60} minutos y nota sobre 10.`,
+        ),
+        desplegable(
+          'Penalización',
+          ajustes.penalizacionSimulacro,
+          PENALIZACIONES.filter(([p]) => p > 0),
+          (v) => cambiarAjuste({ penalizacionSimulacro: PENALIZACIONES.find(([p]) => String(p) === v)[0] }),
+        ),
+        desplegable('Calles', ajustes.nivelSimulacro, NIVELES.map((n) => [n.id, n.nombre]), (v) => cambiarAjuste({ nivelSimulacro: v })),
+        crear('button', { class: 'boton grande', onclick: empezarSimulacro }, 'Empezar el simulacro'),
+        crear(
+          'p',
+          { class: 'ficha-nota' },
+          'Las de reserva no cuentan para la nota: en el examen solo sustituyen a las preguntas que se anulen. Se contestan igual.',
+        ),
+      ),
+      crear('h2', {}, 'Test a tu medida'),
       crear(
         'p',
         { class: 'intro' },
@@ -175,6 +217,34 @@ export async function abrir(contenedor) {
             'si puedes descartar una opción, ya compensa contestar. Con 1/2, hay que descartar dos.',
         ),
       ),
+      conDudosas.length > 0 &&
+        crear(
+          'section',
+          { class: 'tarjeta' },
+          crear('h2', {}, 'Tus dudosas'),
+          crear(
+            'p',
+            {},
+            `En tus últimos tests contestaste ${dudosasTotal.contestadas} preguntas que habías marcado como dudosas y acertaste ` +
+              `${dudosasTotal.bien} (el ${porcentaje(acierto)}). En total te han ${dudosasTotal.aporte >= 0 ? 'sumado' : 'restado'} ` +
+              `${nota(Math.abs(dudosasTotal.aporte))} puntos de nota.`,
+          ),
+          crear(
+            'p',
+            { class: acierto > UMBRAL_DUDOSAS(1 / 2) ? 'acierto-dudosas' : acierto > UMBRAL_DUDOSAS(1 / 3) ? null : 'fallo-dudosas' },
+            acierto > UMBRAL_DUDOSAS(1 / 2)
+              ? 'Te compensa contestarlas, tanto si los fallos restan 1/3 como si restan 1/2.'
+              : acierto > UMBRAL_DUDOSAS(1 / 3)
+                ? 'Te compensa contestarlas si los fallos restan 1/3, pero no si restan 1/2.'
+                : 'Te iría mejor dejarlas en blanco: con lo que aciertas, restan más de lo que suman.',
+          ),
+          crear(
+            'p',
+            { class: 'ficha-nota' },
+            `Contestar compensa si aciertas más del ${porcentaje(UMBRAL_DUDOSAS(1 / 3))} cuando los fallos restan 1/3, ` +
+              `y más del ${porcentaje(UMBRAL_DUDOSAS(1 / 2))} cuando restan 1/2.`,
+          ),
+        ),
       historial.length > 0 && [
         crear('h2', {}, 'Tus últimos tests'),
         crear(
@@ -184,7 +254,7 @@ export async function abrir(contenedor) {
             crear(
               'li',
               {},
-              crear('strong', {}, `Nota ${nota(h.nota)}`),
+              crear('strong', {}, `${h.simulacro ? 'Simulacro · ' : ''}Nota ${nota(h.nota)}`),
               crear('p', {}, `${h.aciertos} bien · ${h.fallos} mal · ${h.enBlanco} en blanco · ${h.total} preguntas`),
               crear('small', {}, `${fecha(h.fecha)} · fallos restan ${TEXTO_PENALIZACION.get(h.penalizacion) ?? h.penalizacion}`),
             ),
@@ -197,30 +267,43 @@ export async function abrir(contenedor) {
 
   // La red de calles para los trayectos (paso 3.3) se carga solo si el tema está marcado
   let trayectos = null
-  async function empezar(e) {
-    let datos = { calles, lugares, ejes: ejesActuales(calles), zona }
-    if (ajustes.temas.includes('trayectos')) {
-      const boton = e?.currentTarget
-      if (boton) {
-        boton.disabled = true
-        boton.textContent = 'Calculando los trayectos…'
-      }
-      trayectos ??= prepararTrayectos({ red: await cargar('red'), calles, lugares })
-      // Un respiro para que se vea el aviso antes de calcular (cada trayecto tarda un poco)
-      await new Promise((listo) => setTimeout(listo, 30))
-      datos = { ...datos, trayectos }
+  async function datosDelExamen(temas, boton) {
+    const datos = { calles, lugares, ejes: ejesActuales(calles), zona }
+    if (!temas.includes('trayectos')) return datos
+    if (boton) {
+      boton.disabled = true
+      boton.textContent = 'Calculando los trayectos…'
     }
+    trayectos ??= prepararTrayectos({ red: await cargar('red'), calles, lugares })
+    // Un respiro para que se vea el aviso antes de calcular (cada trayecto tarda un poco)
+    await new Promise((listo) => setTimeout(listo, 30))
+    return { ...datos, trayectos }
+  }
+
+  async function empezar(e) {
+    const datos = await datosDelExamen(ajustes.temas, e?.currentTarget)
     const preguntas = crearExamen(datos, { temas: ajustes.temas, nivel: ajustes.nivel, distrito: ajustes.distrito, total: ajustes.total })
     if (preguntas.length) examen(preguntas)
   }
 
-  function examen(preguntas) {
+  // Simulacro (paso 3.6): todos los temas y toda Granada; las 5 últimas son de reserva
+  async function empezarSimulacro(e) {
+    const temas = TEMAS.map((t) => t.id)
+    const datos = await datosDelExamen(temas, e?.currentTarget)
+    const total = SIMULACRO.cuentan + SIMULACRO.reserva
+    const preguntas = crearExamen(datos, { temas, nivel: ajustes.nivelSimulacro, distrito: 'Todos', total })
+    if (preguntas.length) examen(preguntas, { simulacro: true })
+  }
+
+  function examen(preguntas, { simulacro = false } = {}) {
     pantalla = 'examen'
     const total = preguntas.length
     const respuestas = new Array(total).fill(null)
     const dudosas = new Set()
     let actual = 0
-    const limite = ajustes.conTiempo ? total * SEGUNDOS_POR_PREGUNTA : null
+    // En el simulacro, las que pasan de 50 son de reserva
+    const esReserva = (i) => simulacro && i >= SIMULACRO.cuentan
+    const limite = simulacro ? SIMULACRO.segundos : ajustes.conTiempo ? total * SEGUNDOS_POR_PREGUNTA : null
     let inicio = Date.now()
     let pausaDesde = null // el reloj se para mientras se escribe una nota
     const ahora = () => pausaDesde ?? Date.now()
@@ -248,7 +331,8 @@ export async function abrir(contenedor) {
           'article',
           { class: 'tarjeta-repaso' },
           botonNota(p, respuestas[actual], reloj),
-          crear('p', { class: 'etiqueta' }, `Pregunta ${actual + 1} de ${total} · ${NOMBRE_TEMA[p.tema]}`),
+          crear('p', { class: 'etiqueta' }, `Pregunta ${actual + 1} de ${total} · ${esReserva(actual) ? 'De reserva · ' : ''}${NOMBRE_TEMA[p.tema]}`),
+          esReserva(actual) && crear('p', { class: 'ficha-nota' }, 'Pregunta de reserva: no cuenta para la nota salvo que anulen alguna de las 50.'),
           crear('h2', { class: 'pregunta-tarjeta' }, p.pregunta),
           crear(
             'div',
@@ -284,7 +368,7 @@ export async function abrir(contenedor) {
             crear(
               'button',
               {
-                class: ['numero', respuestas[i] !== null && 'contestada', dudosas.has(i) && 'dudosa', i === actual && 'actual']
+                class: ['numero', respuestas[i] !== null && 'contestada', dudosas.has(i) && 'dudosa', esReserva(i) && 'reserva', i === actual && 'actual']
                   .filter(Boolean)
                   .join(' '),
                 onclick: () => ir(i),
@@ -319,7 +403,7 @@ export async function abrir(contenedor) {
       if (!seAcaboElTiempo && enBlanco && !confirm(`Te quedan ${enBlanco} sin contestar. ¿Entregar ya?`)) return
       clearInterval(temporizador)
       teclas = null
-      resultado(preguntas, respuestas, dudosas, seAcaboElTiempo)
+      resultado(preguntas, respuestas, dudosas, seAcaboElTiempo, simulacro)
     }
 
     if (limite) {
@@ -340,11 +424,15 @@ export async function abrir(contenedor) {
     subir()
   }
 
-  function resultado(preguntas, respuestas, dudosas, seAcaboElTiempo) {
+  function resultado(preguntas, respuestas, dudosas, seAcaboElTiempo, simulacro = false) {
     pantalla = 'resultado'
-    const { aciertos, fallos, enBlanco, nota: puntuacion } = corregir(preguntas, respuestas, ajustes.penalizacion)
-    const total = preguntas.length
+    const penalizacion = simulacro ? ajustes.penalizacionSimulacro : ajustes.penalizacion
+    // En el simulacro, la nota sale de las 50 primeras; las de reserva se corrigen aparte
+    const cuentan = simulacro ? Math.min(SIMULACRO.cuentan, preguntas.length) : preguntas.length
+    const { aciertos, fallos, enBlanco, nota: puntuacion } = corregir(preguntas.slice(0, cuentan), respuestas.slice(0, cuentan), penalizacion)
+    const total = cuentan
     const estado = (i) => (respuestas[i] === null ? 'blanco' : respuestas[i] === preguntas[i].correcta ? 'bien' : 'mal')
+    const reserva = preguntas.slice(cuentan).map((_, j) => estado(cuentan + j))
 
     // Lo contestado cuenta para el repaso de las tarjetas: bien = "Bien", mal o en blanco = "Otra vez"
     const estados = leer(CLAVES.estados, {})
@@ -354,25 +442,35 @@ export async function abrir(contenedor) {
     guardar(CLAVES.estados, estados)
     // Para la racha y los aciertos por tema (las de en blanco cuentan como no acertadas)
     apuntar(preguntas.map((p, i) => ({ tema: p.tema, acierto: estado(i) === 'bien' })))
+    // ¿Compensó contestar las dudosas? (paso 3.7; solo las que cuentan para la nota)
+    const contestadasDudosas = [...dudosas].filter((i) => i < cuentan && respuestas[i] !== null)
+    const dudosasBien = contestadasDudosas.filter((i) => estado(i) === 'bien').length
+    const dudosasMal = contestadasDudosas.length - dudosasBien
+    const aporte = ((dudosasBien - penalizacion * dudosasMal) / total) * 10
     guardar(CLAVES.historial, [
-      { fecha: new Date().toISOString(), total, aciertos, fallos, enBlanco, nota: puntuacion, penalizacion: ajustes.penalizacion },
+      {
+        fecha: new Date().toISOString(),
+        total,
+        aciertos,
+        fallos,
+        enBlanco,
+        nota: puntuacion,
+        penalizacion,
+        ...(simulacro && { simulacro: true }),
+        dudosas: { marcadas: dudosas.size, contestadas: contestadasDudosas.length, bien: dudosasBien, aporte },
+      },
       ...leer(CLAVES.historial, []),
     ].slice(0, 30))
 
-    // ¿Compensó contestar las dudosas?
-    const contestadasDudosas = [...dudosas].filter((i) => respuestas[i] !== null)
-    const dudosasBien = contestadasDudosas.filter((i) => estado(i) === 'bien').length
-    const dudosasMal = contestadasDudosas.length - dudosasBien
-    const aporte = ((dudosasBien - ajustes.penalizacion * dudosasMal) / total) * 10
-
     let soloFallos = false
+    let soloDudosas = false
     const lista = crear('ol', { class: 'lista-correccion' })
     function pintarLista() {
       rellenar(
         lista,
         preguntas.map((p, i) => {
-          if (soloFallos && estado(i) === 'bien') return null
-          const marca = { bien: 'Bien', mal: 'Mal', blanco: 'En blanco' }[estado(i)]
+          if ((soloFallos && estado(i) === 'bien') || (soloDudosas && !dudosas.has(i))) return null
+          const marca = { bien: 'Bien', mal: 'Mal', blanco: 'En blanco' }[estado(i)] + (i >= cuentan ? ' · de reserva' : '')
           return crear(
             'li',
             { class: `correccion correccion-${estado(i)}` },
@@ -417,24 +515,60 @@ export async function abrir(contenedor) {
         crear(
           'p',
           { class: 'ficha-nota' },
-          `Cálculo: (${aciertos} − ${fallos} × ${TEXTO_PENALIZACION.get(ajustes.penalizacion)}) ÷ ${total} × 10`,
+          `Cálculo: (${aciertos} − ${fallos} × ${TEXTO_PENALIZACION.get(penalizacion)}) ÷ ${total} × 10`,
         ),
-        dudosas.size > 0 &&
+        reserva.length > 0 &&
           crear(
             'p',
             { class: 'ficha-nota' },
-            `Marcaste ${dudosas.size} como dudosa${dudosas.size > 1 ? 's' : ''}` +
-              (contestadasDudosas.length
-                ? `: contestaste ${contestadasDudosas.length} (${dudosasBien} bien, ${dudosasMal} mal) y te ${aporte >= 0 ? 'sumaron' : 'restaron'} ${nota(Math.abs(aporte))} puntos de nota.`
-                : ', pero las dejaste en blanco.'),
+            `De reserva (no cuentan): ${reserva.filter((e) => e === 'bien').length} bien, ${reserva.filter((e) => e === 'mal').length} mal y ` +
+              `${reserva.filter((e) => e === 'blanco').length} en blanco.`,
           ),
       ),
+      // Análisis de dudosas (paso 3.7)
+      dudosas.size > 0 &&
+        crear(
+          'section',
+          { class: 'tarjeta' },
+          crear('h2', {}, '¿Te compensó contestar las dudosas?'),
+          contestadasDudosas.length
+            ? [
+                crear(
+                  'p',
+                  {},
+                  `Marcaste ${dudosas.size} como dudosa${dudosas.size > 1 ? 's' : ''} y contestaste ${contestadasDudosas.length}: ` +
+                    `${dudosasBien} bien y ${dudosasMal} mal.`,
+                ),
+                crear(
+                  'div',
+                  { class: 'cifras' },
+                  crear('div', { class: 'cifra' }, crear('strong', {}, nota(puntuacion)), crear('span', {}, 'contestándolas')),
+                  crear('div', { class: 'cifra' }, crear('strong', {}, nota(puntuacion - aporte)), crear('span', {}, 'dejándolas en blanco')),
+                ),
+                crear(
+                  'p',
+                  { class: aporte > 0 ? 'acierto-dudosas' : aporte < 0 ? 'fallo-dudosas' : null },
+                  aporte > 0
+                    ? `Te compensó: te sumaron ${nota(aporte)} puntos.`
+                    : aporte < 0
+                      ? `No te compensó: te restaron ${nota(-aporte)} puntos. Dejándolas en blanco habrías sacado más.`
+                      : 'Ni ganaste ni perdiste nota con ellas.',
+                ),
+              ]
+            : crear('p', {}, 'Las dejaste todas en blanco, así que no te sumaron ni te restaron.'),
+          crear(
+            'p',
+            { class: 'ficha-nota' },
+            `Con los fallos restando ${TEXTO_PENALIZACION.get(penalizacion)}, contestar una dudosa compensa si aciertas más del ` +
+              `${porcentaje(UMBRAL_DUDOSAS(penalizacion))} de las veces.`,
+          ),
+        ),
       crear(
         'div',
         { class: 'acciones-eje' },
         fallosYBlancos.length > 0 &&
           crear('button', { class: 'boton', onclick: () => examen(fallosYBlancos) }, `Repetir las ${fallosYBlancos.length} no acertadas`),
-        crear('button', { class: 'boton secundario', onclick: empezar }, 'Nuevo test'),
+        crear('button', { class: 'boton secundario', onclick: simulacro ? empezarSimulacro : empezar }, simulacro ? 'Otro simulacro' : 'Nuevo test'),
         crear('button', { class: 'boton secundario', onclick: portada }, 'Volver'),
       ),
       crear('h2', {}, 'Corrección'),
@@ -450,6 +584,19 @@ export async function abrir(contenedor) {
         }),
         'Ver solo las que no acerté',
       ),
+      dudosas.size > 0 &&
+        crear(
+          'label',
+          { class: 'casilla' },
+          crear('input', {
+            type: 'checkbox',
+            onchange: (e) => {
+              soloDudosas = e.target.checked
+              pintarLista()
+            },
+          }),
+          'Ver solo las dudosas',
+        ),
       lista,
     )
     subir()
