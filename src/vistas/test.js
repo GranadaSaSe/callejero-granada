@@ -6,6 +6,7 @@ import { crear, rellenar } from '../crear.js'
 import { cargar } from '../datos.js'
 import { DISTRITOS, ejesActuales } from '../ejes-lista.js'
 import { corregir, crearExamen, NIVELES, TEMAS } from '../examen-datos.js'
+import { prepararTrayectos } from '../trayectos-datos.js'
 import { buscadorDeReferencias, notaAbierta, notaDePregunta } from '../nota-pregunta.js'
 import { calificar } from '../repaso.js'
 
@@ -194,11 +195,22 @@ export async function abrir(contenedor) {
     subir()
   }
 
-  function empezar() {
-    const preguntas = crearExamen(
-      { calles, lugares, ejes: ejesActuales(calles), zona },
-      { temas: ajustes.temas, nivel: ajustes.nivel, distrito: ajustes.distrito, total: ajustes.total },
-    )
+  // La red de calles para los trayectos (paso 3.3) se carga solo si el tema está marcado
+  let trayectos = null
+  async function empezar(e) {
+    let datos = { calles, lugares, ejes: ejesActuales(calles), zona }
+    if (ajustes.temas.includes('trayectos')) {
+      const boton = e?.currentTarget
+      if (boton) {
+        boton.disabled = true
+        boton.textContent = 'Calculando los trayectos…'
+      }
+      trayectos ??= prepararTrayectos({ red: await cargar('red'), calles, lugares })
+      // Un respiro para que se vea el aviso antes de calcular (cada trayecto tarda un poco)
+      await new Promise((listo) => setTimeout(listo, 30))
+      datos = { ...datos, trayectos }
+    }
+    const preguntas = crearExamen(datos, { temas: ajustes.temas, nivel: ajustes.nivel, distrito: ajustes.distrito, total: ajustes.total })
     if (preguntas.length) examen(preguntas)
   }
 

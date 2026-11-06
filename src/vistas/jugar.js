@@ -1,19 +1,22 @@
 // Pestaña Jugar (Fase 2): juegos sobre un mapa sin nombres. Aquí está lo común (la portada, el mapa y los
 // paneles de arriba y abajo); cada juego está en src/juegos/: "¿Dónde está?" (paso 2.2), "¿Cómo se llama?"
-// (paso 2.3, mapa mudo al revés), "¿Por dónde se circula?" (paso 2.4, sentidos de circulación) y "Zona de los
-// parques" (paso 2.5: pueblos, salidas de autovía y carreteras).
+// (paso 2.3, mapa mudo al revés), "¿Por dónde se circula?" (paso 2.4, sentidos de circulación), "Zona de los
+// parques" (paso 2.5: pueblos, salidas de autovía y carreteras), "Trayectos" y "Paso a paso" (paso 3.3: el camino
+// desde un parque de bomberos).
 import { LngLatBounds } from 'maplibre-gl'
 import { crear, rellenar } from '../crear.js'
 import { cargar } from '../datos.js'
 import { juegoDonde } from '../juegos/donde.js'
 import { juegoNombre } from '../juegos/nombre.js'
+import { juegoPasoAPaso } from '../juegos/paso-a-paso.js'
 import { juegoSentidos } from '../juegos/sentidos.js'
+import { juegoTrayectos } from '../juegos/trayectos.js'
 import { juegoZona } from '../juegos/zona.js'
 import { VACIO } from '../juegos/comun.js'
 import { crearFlecha, crearMapa, puntosDePueblos, puntosDeSalidas } from '../mapa-base.js'
 import { notaAbierta } from '../nota-pregunta.js'
 
-const JUEGOS = [juegoDonde, juegoNombre, juegoSentidos, juegoZona]
+const JUEGOS = [juegoDonde, juegoNombre, juegoSentidos, juegoTrayectos, juegoPasoAPaso, juegoZona]
 // Capas del mapa base que darían la respuesta (nombres, lugares) o que no pintan nada en los juegos
 const CAPAS_OCULTAS = [
   'nombres-principales',
@@ -48,8 +51,8 @@ export async function abrir(contenedor) {
   // Los controles del mapa se colocan justo encima del panel de abajo, que cambia de alto
   new ResizeObserver(() => juego.style.setProperty('--hueco-abajo', `${abajo.offsetHeight + 16}px`)).observe(abajo)
 
-  const [calles, tramos, zonas, fondo, lugares, municipios, carreteras, salidas] = await Promise.all(
-    ['calles', 'tramos', 'zonas', 'fondo', 'lugares', 'municipios', 'carreteras', 'salidas'].map(cargar),
+  const [calles, tramos, zonas, fondo, lugares, municipios, carreteras, salidas, red] = await Promise.all(
+    ['calles', 'tramos', 'zonas', 'fondo', 'lugares', 'municipios', 'carreteras', 'salidas', 'red'].map(cargar),
   )
 
   // Rectángulo de cada distrito y de toda Granada, para encuadrar el mapa al empezar cada pregunta
@@ -155,7 +158,7 @@ export async function abrir(contenedor) {
 
   // Lo que los juegos usan de la pestaña
   const ctx = {
-    datos: { calles, tramos, lugares, municipios, carreteras, salidas },
+    datos: { calles, tramos, lugares, municipios, carreteras, salidas, red },
     pagina,
     arriba,
     abajo,
@@ -167,6 +170,7 @@ export async function abrir(contenedor) {
       contenedor.classList.add('vista-mapa')
       juego.hidden = false
       rellenar(arriba)
+      abajo.className = 'juego-abajo' // sin los cambios que deje un juego (el panel alto de «Trayectos»)
       rellenar(abajo, crear('p', {}, 'Cargando el mapa…'))
       await prepararMapa()
       mapa.resize()
@@ -192,7 +196,7 @@ export async function abrir(contenedor) {
       crear(
         'p',
         { class: 'intro' },
-        'Juegos sobre un mapa sin nombres, para saber dónde está cada sitio, cómo se llama, por dónde se circula y cómo se va a los pueblos de alrededor.',
+        'Juegos sobre un mapa sin nombres, para saber dónde está cada sitio, cómo se llama, por dónde se circula, cómo se llega desde los parques de bomberos y cómo se va a los pueblos de alrededor.',
       ),
       JUEGOS.map((j) => j.tarjeta(ctx)),
     )

@@ -2,11 +2,13 @@
 // Mezcla las tarjetas de repaso (con las respuestas falsas de crearOpciones) con preguntas propias de
 // examen: "¿qué calle va desde A hasta B?", "¿cuál de estas calles cruza con X?", "¿cuál está en el
 // barrio Y?", "¿en qué distrito está tal lugar?" y, de la zona de los parques, "¿cuál de estos pueblos está en
-// la zona?" y "¿con cuál limita X?".
+// la zona?" y "¿con cuál limita X?". Y los trayectos desde los parques de bomberos (paso 3.3, src/trayectos-datos.js).
 // Este archivo no usa nada del navegador, así que se puede probar con Node.
 import { PUEBLOS_FUERA } from '../scripts/lib/zona-parques.mjs'
 import { DISTRITOS } from './ejes-lista.js'
+import { PARQUES } from './rutas.js'
 import { crearOpciones, crearTarjetas } from './tarjetas-datos.js'
+import { crearTrayecto, destinosTrayecto, explicarTrayecto } from './trayectos-datos.js'
 
 export const TEMAS = [
   { id: 'zonas', nombre: 'Distritos y barrios' },
@@ -15,6 +17,7 @@ export const TEMAS = [
   { id: 'cruces', nombre: 'Cruces y ejes' },
   { id: 'lugares', nombre: 'Lugares de interés' },
   { id: 'carreteras', nombre: 'Pueblos y carreteras de la zona' },
+  { id: 'trayectos', nombre: 'Trayectos desde los parques' },
 ]
 
 // Qué calles pueden salir, según su importancia (1 = vía principal ... 6 = peatonal o sin clasificar)
@@ -54,7 +57,7 @@ const deTarjeta = (t, mazos, tema, azar) => {
 }
 
 // Para cada tema, una lista de "recetas": cada una crea una pregunta (o null si no se puede)
-function recetas({ calles, lugares, ejes, zona = null }, { nivel, distrito }, azar) {
+function recetas({ calles, lugares, ejes, zona = null, trayectos = null }, { nivel, distrito }, azar) {
   const maximo = NIVELES.find((n) => n.id === nivel)?.maximo ?? 4
   const enZona = (d) => distrito === 'Todos' || d === distrito
   const validas = calles.filter((c) => c.importancia <= maximo && enZona(c.distritos[0]))
@@ -201,6 +204,28 @@ function recetas({ calles, lugares, ejes, zona = null }, { nivel, distrito }, az
           azar,
         ),
       )
+    }
+  }
+  // Trayectos (paso 3.3): desde un parque hasta un lugar o una calle del distrito, con todas las calles del camino.
+  // `trayectos` es lo que devuelve prepararTrayectos; cada pregunta se calcula al salir (tarda un poco).
+  if (trayectos) {
+    for (const destino of destinosTrayecto(trayectos, { zona: distrito, importancia: maximo })) {
+      for (const parque of PARQUES) {
+        r.trayectos.push(() => {
+          const t = crearTrayecto(trayectos, parque.id, destino, azar)
+          if (!t) return null
+          return {
+            id: `trayecto:${t.id}`,
+            tema: 'trayectos',
+            tarjeta: null,
+            pregunta: t.enunciado,
+            opciones: t.opciones.map((o) => o.texto),
+            correcta: t.correcta,
+            explicacion: explicarTrayecto(t),
+            enlace: destino.enlace,
+          }
+        })
+      }
     }
   }
   return r
