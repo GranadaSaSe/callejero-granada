@@ -2,10 +2,11 @@
 // paneles de arriba y abajo); cada juego está en src/juegos/: "¿Dónde está?" (paso 2.2), "¿Cómo se llama?"
 // (paso 2.3, mapa mudo al revés), "¿Por dónde se circula?" (paso 2.4, sentidos de circulación), "Zona de los
 // parques" (paso 2.5: pueblos, salidas de autovía y carreteras), "Trayectos" y "Paso a paso" (paso 3.3: el camino
-// desde un parque de bomberos).
+// desde un parque de bomberos) y "Dibuja el trayecto" (paso 3.4).
 import { LngLatBounds } from 'maplibre-gl'
 import { crear, rellenar } from '../crear.js'
 import { cargar } from '../datos.js'
+import { juegoDibujo } from '../juegos/dibujo.js'
 import { juegoDonde } from '../juegos/donde.js'
 import { juegoNombre } from '../juegos/nombre.js'
 import { juegoPasoAPaso } from '../juegos/paso-a-paso.js'
@@ -16,7 +17,7 @@ import { VACIO } from '../juegos/comun.js'
 import { crearFlecha, crearMapa, puntosDePueblos, puntosDeSalidas } from '../mapa-base.js'
 import { notaAbierta } from '../nota-pregunta.js'
 
-const JUEGOS = [juegoDonde, juegoNombre, juegoSentidos, juegoTrayectos, juegoPasoAPaso, juegoZona]
+const JUEGOS = [juegoDonde, juegoNombre, juegoSentidos, juegoTrayectos, juegoPasoAPaso, juegoDibujo, juegoZona]
 // Capas del mapa base que darían la respuesta (nombres, lugares) o que no pintan nada en los juegos
 const CAPAS_OCULTAS = [
   'nombres-principales',
@@ -82,6 +83,10 @@ export async function abrir(contenedor) {
     })
     mapaListo = new Promise((listo) =>
       mapa.on('load', () => {
+        // Los créditos, plegados en su botón (i): tapaban un trozo del mapa que hay que tocar
+        const creditos = lienzo.querySelector('.maplibregl-ctrl-attrib')
+        creditos?.classList.remove('maplibregl-compact-show')
+        creditos?.removeAttribute('open')
         for (const capa of CAPAS_OCULTAS) if (mapa.getLayer(capa)) mapa.setLayoutProperty(capa, 'visibility', 'none')
         // Las carreteras de la zona, en gris: con sus colores, una autovía (roja) o una autonómica (verde) se
         // confunden con lo marcado en rojo o en verde al contestar
@@ -179,6 +184,8 @@ export async function abrir(contenedor) {
     limpiar: () => FUENTES.forEach((fuente) => mapa.getSource(fuente).setData(VACIO)),
     // Giro del mapa en grados (0 = norte arriba)
     giro: () => mapa.getBearing(),
+    // Metros que mide un píxel de la pantalla con el zoom de ahora (para saber si un toque cae encima de una calle)
+    metrosPorPixel: () => (40075016.686 * Math.cos((mapa.getCenter().lat * Math.PI) / 180)) / (512 * 2 ** mapa.getZoom()),
     ponerDatos: (fuente, datos) => mapa.getSource(fuente).setData(datos),
     encuadrarZona: (zona) => mapa.fitBounds(limitesZona.get(zona) ?? limitesZona.get('Todos'), { padding: margen(), duration: 500, bearing: mapa.getBearing() }),
     encuadrar(puntos, { maxZoom = 17, holgura = 0 } = {}) {

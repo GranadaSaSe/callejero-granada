@@ -105,7 +105,7 @@ const costeDe = (tramo) => {
 }
 
 // Lista ordenada por coste para sacar siempre el camino más barato
-function crearCola() {
+export function crearCola() {
   const lista = []
   return {
     poner(coste, dato) {

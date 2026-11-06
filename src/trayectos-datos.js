@@ -7,7 +7,7 @@
 // Cada falsa se comprueba: si su lista de calles se pudiera recorrer de verdad (o, en el rodeo, casi tan corto),
 // no vale. Los tramos dudosos cuentan como si se pudieran recorrer en los dos sentidos.
 // También están aquí los cruces del juego «Paso a paso». No usa el navegador: se puede probar con Node.
-import { calcularRuta, esProhibido, giroEntre, itinerario, lineaDeRuta, PARQUES, prepararRed, puntoDeParque, puntoEnRed, salidasDe } from './rutas.js'
+import { calcularRuta, crearCola, esProhibido, giroEntre, itinerario, lineaDeRuta, PARQUES, prepararRed, puntoDeParque, puntoEnRed, salidasDe } from './rutas.js'
 
 export const TIPOS_TRAYECTO = [
   { id: 'mezcla', nombre: 'A lugares y calles', lugares: true, calles: true },
@@ -336,3 +336,219 @@ export function crucesPasoAPaso(base, trayecto) {
   }
   return cruces
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// Dibujar un trayecto (paso 3.4): desde un parque, se toca en el mapa la calle por la que se sigue y hasta dónde, y
+// el camino avanza por esa calle hasta allí, calle a calle. Al llegar se compara con el mejor camino.
+
+// Un trayecto para dibujar, con el mejor camino para compararlo al final; null si no hay camino sin tramos dudosos
+// o es demasiado corto
+export function trayectoParaDibujar(base, parqueId, destino) {
+  const parque = PARQUES.find((p) => p.id === parqueId)
+  const origen = base.salidas[parqueId]
+  const fin = puntoDestino(base, destino)
+  if (!origen || !fin || (fin.calle && origen.tramo.nombre === fin.calle)) return null
+  const ruta = calcularRuta(base.red, origen, fin, { sinDudosos: true })
+  if (!ruta) return null
+  const partes = itinerario(ruta)
+  if (partes.length < 3) return null
+  const linea = lineaDeRuta(ruta)
+  const hasta = destino.clase === 'lugar' ? `${destino.nombre}${destino.detalle ? ` (${destino.detalle})` : ''}` : destino.nombre
+  return { id: `${parqueId}>${destino.id}`, parque, destino, hasta, origen, fin, ruta, partes, linea, llegada: linea.at(-1) }
+}
+
+// Metros en línea recta desde un parque hasta un destino (para elegir trayectos cortos o largos)
+export function metrosHastaDestino(base, parqueId, destino) {
+  const origen = base.salidas[parqueId]
+  if (!origen) return Infinity
+  const desde = origen.tramo.linea[0]
+  if (destino.clase === 'lugar') return distancia(desde, destino.lugar.punto)
+  const tramos = base.tramosDe.get(destino.nombre) ?? []
+  return tramos.length ? Math.min(...tramos.map((t) => distancia(desde, t.linea[Math.floor(t.linea.length / 2)]))) : Infinity
+}
+
+// Un paso por un tramo en un sentido, con la parte que se recorre ([desde, hasta], medida en el sentido de la marcha)
+const pasoPor = (tramo, aFavor, trozo = [0, 1]) => ({
+  tramo,
+  aFavor,
+  hacia: aFavor ? tramo.b : tramo.a,
+  contra: aFavor ? tramo.s === 'r' : tramo.s === 'd',
+  trozo,
+  metros: tramo.m * Math.max(0, trozo[1] - trozo[0]),
+})
+const metrosDe = (pasos) => pasos.reduce((s, p) => s + p.metros, 0)
+
+// Metros de un punto a una línea, y si el punto más cercano cae a lo largo de la línea ("enfrente") y no en uno de
+// sus extremos
+function metrosALinea(p, l) {
+  let mejor = { metros: Infinity, enfrente: false }
+  for (let i = 1; i < l.length; i++) {
+    const [ax, ay] = [(l[i - 1][0] - p[0]) * M_LON, (l[i - 1][1] - p[1]) * M_LAT]
+    const [dx, dy] = [(l[i][0] - l[i - 1][0]) * M_LON, (l[i][1] - l[i - 1][1]) * M_LAT]
+    const t = Math.max(0, Math.min(1, -(ax * dx + ay * dy) / (dx * dx + dy * dy || 1)))
+    const metros = Math.hypot(ax + t * dx, ay + t * dy)
+    const enExtremo = (i === 1 && t === 0) || (i === l.length - 1 && t === 1)
+    if (metros < mejor.metros) mejor = { metros, enfrente: !enExtremo }
+  }
+  return mejor
+}
+
+// El tramo de la red que se ha tocado, si está a menos de `maxMetros` del dedo: { tramo, f, metros, cerca }.
+// "cerca": los tramos de la misma calle que pasan justo enfrente a pocos metros (la otra calzada de una avenida), para
+// que dé igual cuál de las dos se toque. Los que siguen a continuación del tocado no cuentan: su punto más cercano es
+// su extremo.
+export function tramoTocado(base, punto, maxMetros) {
+  const p = puntoEnRed(base.red, punto)
+  if (!p || p.metros > maxMetros) return null
+  const cerca = p.tramo.nombre
+    ? (base.tramosDe.get(p.tramo.nombre) ?? []).filter((t) => {
+        const m = metrosALinea(punto, t.linea)
+        return m.enfrente && m.metros <= p.metros + 30
+      })
+    : []
+  return { ...p, cerca: [...new Set([p.tramo, ...cerca])] }
+}
+
+// Por las calles de `nombres` (y los trocitos sin nombre que las unen), el camino más corto desde donde se llega (`ultimo`,
+// el último paso) hasta el final de un tramo de esa calle. Se supone que se conduce bien: ir en contra dirección o
+// hacer un giro prohibido cuesta muchísimo, así que solo se hace si por esa calle no hay otra forma de llegar
+// (y entonces se marca como fallo al corregir).
+const MULTA = 100000
+function caminoPorCalle(red, ultimo, objetivos, nombres) {
+  const vale = (t) => !t.nombre || nombres.has(t.nombre)
+  const clave = (p) => p.tramo.i * 2 + (p.aFavor ? 1 : 0)
+  const mejor = new Map()
+  const previo = new Map()
+  const cola = crearCola()
+  const probar = (antes, s, coste) => {
+    if (!vale(s.tramo) || s.tramo === antes.tramo) return
+    const p = pasoPor(s.tramo, s.aFavor)
+    const c = coste + p.metros + (p.contra ? MULTA : 0) + (esProhibido(red, antes, s) ? MULTA : 0)
+    if (mejor.has(clave(p)) && mejor.get(clave(p)) <= c) return
+    mejor.set(clave(p), c)
+    previo.set(clave(p), antes === ultimo ? null : antes)
+    cola.poner(c, p)
+  }
+  for (const s of salidasDe(red, ultimo.hacia)) probar(ultimo, s, 0)
+  while (!cola.vacia) {
+    const { coste, dato: p } = cola.sacar()
+    if (coste > mejor.get(clave(p))) continue
+    if (objetivos.has(p.tramo)) {
+      const pasos = [p]
+      for (let a = previo.get(clave(p)); a; a = previo.get(clave(a))) pasos.unshift(a)
+      return pasos
+    }
+    for (const s of salidasDe(red, p.hacia)) probar(p, s, coste)
+  }
+  return null
+}
+
+// Corta el camino donde se llega al destino: en el punto del lugar, o al entrar en la calle
+function cortarEnDestino(t, pasos) {
+  for (let i = 0; i < pasos.length; i++) {
+    const p = pasos[i]
+    if (t.fin.calle ? p.tramo.nombre === t.fin.calle : p.tramo === t.fin.tramo) {
+      const hasta = t.fin.calle ? p.trozo[0] : Math.max(p.trozo[0], p.aFavor ? t.fin.f : 1 - t.fin.f)
+      return { pasos: [...pasos.slice(0, i), pasoPor(p.tramo, p.aFavor, [p.trozo[0], hasta])], llegado: true }
+    }
+  }
+  return { pasos, llegado: false }
+}
+
+// Avanza el dibujo hasta el tramo tocado (de `tramoTocado`), por la calle de ese tramo. `pasos`: lo dibujado hasta
+// ahora. Devuelve { pasos: los nuevos, llegado, recortar } o { error } si esa calle no sale de donde se está.
+// "recortar": cuántos pasos del final de lo dibujado hay que quitar antes de añadir los nuevos. Es por si alguien se
+// pasa del cruce donde quería girar: si la calle tocada cruza la calle por la que acaba de ir, se vuelve a ese cruce.
+export function avanzarDibujo(base, t, pasos, tocado) {
+  const r = avanzarDesde(base, t, pasos, tocado)
+  if (!r.error || !pasos.length || tocado.tramo === pasos.at(-1).tramo) return r
+  const calle = pasos.at(-1).tramo.nombre
+  for (let recortar = 1; recortar < pasos.length && recortar <= 12; recortar++) {
+    const quitado = pasos.at(-recortar)
+    if (quitado.tramo.nombre && quitado.tramo.nombre !== calle) break // solo hacia atrás por la misma calle
+    const otra = avanzarDesde(base, t, pasos.slice(0, -recortar), tocado)
+    if (!otra.error) return { ...otra, recortar }
+  }
+  return r
+}
+
+function avanzarDesde(base, t, pasos, tocado) {
+  const objetivo = tocado.tramo
+  const { origen } = t
+  // Al empezar, por el tramo del parque: hacia donde se ha tocado, o hasta uno de sus dos extremos
+  if (!pasos.length && objetivo === origen.tramo) {
+    const aFavor = tocado.f >= origen.f
+    return cortarEnDestino(t, [pasoPor(objetivo, aFavor, [aFavor ? origen.f : 1 - origen.f, 1])])
+  }
+  const desde = pasos.length
+    ? [{ antes: [], ultimo: pasos.at(-1) }]
+    : [true, false].map((aFavor) => {
+        const p = pasoPor(origen.tramo, aFavor, [aFavor ? origen.f : 1 - origen.f, 1])
+        return { antes: [p], ultimo: p }
+      })
+  if (pasos.length && objetivo === pasos.at(-1).tramo) return { error: 'Ya has llegado ahí. Toca la calle por la que sigues.' }
+  // Si se puede, sin ir en contra dirección ni hacer giros prohibidos; entre los que valen, el más corto
+  const multas = (ps) => ps.filter((p, i) => p.contra || (i && esProhibido(base.red, ps[i - 1], p))).length
+  const hasta = (objetivos) => {
+    let mejor = null
+    for (const { antes, ultimo } of desde) {
+      // Un trocito sin nombre (un enlace, por ejemplo) se alcanza por cualquiera de las calles que salen de aquí
+      const nombres = new Set(objetivo.nombre ? [objetivo.nombre] : salidasDe(base.red, ultimo.hacia).map((x) => x.tramo.nombre).filter(Boolean))
+      const camino = caminoPorCalle(base.red, ultimo, objetivos, nombres)
+      if (!camino) continue
+      const todo = [...antes, ...camino]
+      if (!mejor || multas(todo) < multas(mejor) || (multas(todo) === multas(mejor) && metrosDe(todo) < metrosDe(mejor))) mejor = todo
+    }
+    return mejor
+  }
+  // Al tramo tocado; y si a ese solo se llega mal, a la otra calzada de enfrente (si la hay)
+  let mejor = hasta(new Set([objetivo]))
+  const otras = (tocado.cerca ?? []).filter((x) => x !== objetivo)
+  if (otras.length && (!mejor || multas(mejor) > 0)) {
+    const otro = hasta(new Set(otras))
+    if (otro && (!mejor || multas(otro) < multas(mejor))) mejor = otro
+  }
+  if (!mejor) return { error: 'Esa calle no sale de donde estás. Toca una calle que salga de este cruce, o más adelante en la calle por la que vas.' }
+  return cortarEnDestino(t, mejor)
+}
+
+// La corrección de un trayecto dibujado: si se puede ir así (sin ir en contra dirección ni hacer giros prohibidos),
+// cuánto más largo es que el mejor y los puntos (100 si es tan corto como el mejor). Los tramos con el sentido por
+// revisar no cuentan como fallo.
+export function evaluarDibujo(base, t, pasos) {
+  const ruta = { pasos }
+  const partes = itinerario(ruta)
+  const deParte = parteDePaso(partes)
+  const errores = []
+  const sinRevisar = new Set()
+  pasos.forEach((p, i) => {
+    const calle = nombreCorto(partes[deParte(i)].calle)
+    if (p.contra && p.tramo.dudoso) sinRevisar.add(calle)
+    else if (p.contra && !errores.some((e) => e.tipo === 'contra' && e.parte === deParte(i))) {
+      errores.push({ tipo: 'contra', parte: deParte(i), texto: `Por ${calle} vas en contra dirección` })
+    }
+    if (i && esProhibido(base.red, pasos[i - 1], p)) {
+      const antes = nombreCorto(partes[deParte(i - 1)].calle)
+      errores.push({ tipo: 'prohibido', parte: deParte(i), texto: antes === calle ? `En ${calle} das la vuelta donde está prohibido` : `De ${antes} a ${calle} no se puede girar` })
+    }
+  })
+  const metros = Math.round(metrosDe(pasos))
+  const mejor = t.ruta.metros
+  const vale = errores.length === 0
+  const calidad = !vale ? 'mal' : metros <= mejor * 1.03 + 20 ? 'perfecto' : metros <= mejor * 1.25 ? 'bien' : 'rodeo'
+  return {
+    partes,
+    texto: textoItinerario(partes),
+    linea: lineaDeRuta(ruta),
+    errores,
+    sinRevisar: [...sinRevisar],
+    metros,
+    mejor,
+    vale,
+    calidad,
+    puntos: vale ? Math.round(100 * Math.min(1, (mejor + 20) / Math.max(metros, 1))) : 0,
+  }
+}
+
+// Los tramos de un camino dibujado en contra dirección (para pintarlos en rojo)
+export const lineasEnContra = (pasos) => pasos.filter((p) => p.contra && !p.tramo.dudoso).map((p) => lineaDeRuta({ pasos: [p] }))

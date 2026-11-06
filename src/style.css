@@ -1397,6 +1397,26 @@ li[data-ok='si'] .estado {
   background: color-mix(in srgb, var(--verde) 25%, var(--tarjeta));
 }
 
+/* Simulacro (paso 3.6): las de reserva, con el borde a rayas */
+.numero.reserva {
+  border-style: dashed;
+}
+
+.tarjeta-simulacro {
+  border: 2px solid var(--rojo);
+}
+
+/* Análisis de dudosas (paso 3.7) */
+.acierto-dudosas {
+  color: var(--verde);
+  font-weight: 700;
+}
+
+.fallo-dudosas {
+  color: var(--rojo);
+  font-weight: 700;
+}
+
 .numero.dudosa {
   border: 2px solid #f57c00;
 }
@@ -1906,6 +1926,39 @@ div.opcion-trayecto {
 
 .opcion-trayecto.es-elegida .letra {
   background: var(--rojo);
+}
+
+/* «Dibuja el trayecto» (paso 3.4) */
+.aviso-dibujo {
+  font-size: 15px;
+}
+
+.aviso-dibujo.aviso-error {
+  color: var(--rojo);
+  font-weight: 700;
+}
+
+.recorrido-dibujo {
+  max-height: 4.6em;
+  overflow-y: auto;
+  color: var(--texto-suave);
+  font-size: 14px;
+}
+
+.recorrido-dibujo:empty {
+  display: none;
+}
+
+.acciones-dibujo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.acciones-dibujo .boton {
+  flex: 1 1 auto;
+  padding: 8px 10px;
+  font-size: 15px;
 }
 
 .opciones-plegadas {

@@ -76,7 +76,9 @@ export const ajustesTrayecto = (ajustes, cambiar) =>
 
 // El origen y el destino en el mapa: el parque, y el lugar (un punto) o la calle (sus líneas), con sus nombres
 export function origenYDestino(ctx, t) {
-  const figuras = [punto(t.opciones[t.correcta].linea[0], { nombre: t.parque.nombre.replace('Parque de Bomberos', 'Parque'), color: GRIS, radio: 7 })]
+  // El camino bueno: en «Dibuja el trayecto» va en t.linea; en las preguntas, en su opción buena
+  const camino = t.linea ?? t.opciones[t.correcta].linea
+  const figuras = [punto(camino[0], { nombre: t.parque.nombre.replace('Parque de Bomberos', 'Parque'), color: GRIS, radio: 7 })]
   if (t.destino.clase === 'lugar') figuras.push(punto(t.destino.lugar.punto, { nombre: t.destino.nombre, color: GRIS, radio: 7 }))
   else for (const l of lineasDeCalle(baseTrayectos(ctx), t.destino.nombre)) figuras.push(linea(l, { nombre: t.destino.nombre, color: GRIS }))
   return figuras
