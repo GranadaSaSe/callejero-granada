@@ -138,6 +138,17 @@ export function progresoPorZonas(datos, guardado, { nivel = 'medio' } = {}) {
   return { distritos, partes }
 }
 
+// Cómo vas con cada calle (para la lista de calles): Map id → { estado: 'dominada' | 'empezada', fallos }. Las que
+// no están, sin ver. `datos`: calles, lugares y tramos.
+export function progresoDeCalles(datos, guardado) {
+  const { sitios } = registros({ municipios: { features: [] }, salidas: [], ...datos }, guardado)
+  const porCalle = new Map()
+  for (const r of sitios.values()) {
+    if (r.clave.startsWith('c:')) porCalle.set(r.dato.id, { estado: dominado(r) ? 'dominada' : 'empezada', fallos: Math.round(r.fallos) })
+  }
+  return porCalle
+}
+
 // Para el mapa de calor: "calor" son muchos puntos con su peso (los fallos) y "sitios" uno por calle, lugar,
 // pueblo o salida con fallos, con su número y lo necesario para abrir su ficha
 export function fallosEnElMapa(datos, guardado) {
