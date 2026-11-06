@@ -29,6 +29,8 @@ export const GRUPOS = [
     categorias: ['Monumentos', 'Iglesias y templos', 'Cultura', 'Estatuas y esculturas', 'Miradores', 'Fuentes'],
   },
   { nombre: 'Transporte', color: '#00838f', categorias: ['Transporte'] },
+  // Plazas que no son calle (tramos revisados como "plaza"): un punto con su nombre
+  { nombre: 'Plazas', color: '#795548', categorias: ['Plazas'] },
   {
     nombre: 'Parques, deporte y compras',
     color: '#2e7d32',

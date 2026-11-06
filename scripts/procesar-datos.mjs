@@ -132,11 +132,13 @@ for (const f of viales.features) {
   let nombre = p.nom_normalizado ?? `${p.nom_tip_via} ${p.nom_via}`
   // Alguna vía viene con las letras rotas por un error de codificación ("AndalucÃ­a" → "Andalucía")
   if (/[ÃÂ]/.test(nombre)) nombre = Buffer.from(nombre, 'latin1').toString('utf8')
+  // Y alguna, con un guion invisible detrás de la tilde ("Marí­n"), que se ve raro al escribir el nombre
+  nombre = nombre.replace(/­/g, '')
   const palabrasTipo = normalizar(p.nom_tip_via ?? '').split(' ')
   const tipo = normalizar(nombre).startsWith(palabrasTipo.join(' '))
     ? nombre.split(' ').slice(0, palabrasTipo.length).join(' ')
     : p.nom_tip_via
-  vias.set(p.id_vial, { id: p.id_vial, nombre, tipo, sinNombre: p.nom_tip_via === 'VIA', tramos: [], portales: [] })
+  vias.set(p.id_vial, { id: p.id_vial, nombre, tipo, sinNombre: p.nom_tip_via === 'VIA', tramos: [], tramosPlaza: [], portales: [] })
 }
 const nombreVia = (id) => {
   const via = vias.get(id)
@@ -246,7 +248,13 @@ for (const f of tramosCdau.features) {
   const via = viaDelTramo(f.properties.id_tramo, linea)
   const cdau = SENTIDO_CDAU[f.properties.circulacion] ?? null
   const osm = parejaOsm(linea)
-  const revisado = revisiones.tramos[f.properties.id_tramo]?.sentido ?? null
+  // Un tramo revisado como "plaza" no es una calle sino parte de una plaza (notas de Gonzalo del 6-11-2026): no
+  // se dibuja ni se pregunta como calle y la plaza sale como un punto con su nombre entre los lugares de interés.
+  // Por algunas plazas siguen pasando coches: "circulacion" dice cómo (directo, inverso o doble), y así entra en
+  // la red de los trayectos; si no lo dice, no se circula por ella (cuenta como peatonal)
+  const decision = revisiones.tramos[f.properties.id_tramo] ?? null
+  const plaza = decision?.sentido === 'plaza'
+  const revisado = plaza ? (decision.circulacion ?? 'peatonal') : (decision?.sentido ?? null)
   const tramo = {
     id: f.properties.id_tramo,
     via,
@@ -262,9 +270,10 @@ for (const f of tramosCdau.features) {
     bulevar: !cdau && !revisado && calzadasALosLados(linea),
     dudoso: !revisado && Boolean(cdau && osm.sentido && cdau !== osm.sentido),
     longitud: longitud(linea),
+    plaza,
   }
   tramos.push(tramo)
-  vias.get(via)?.tramos.push(tramo)
+  vias.get(via)?.[plaza ? 'tramosPlaza' : 'tramos'].push(tramo)
 }
 
 const indiceParalelas = crearIndice(40)
@@ -287,7 +296,7 @@ for (const via of vias.values()) {
   if (via.sinNombre) continue
   const claves = new Set(clavesNombre(via.nombre))
   const votos = new Map()
-  for (const t of via.tramos) {
+  for (const t of [...via.tramos, ...via.tramosPlaza]) {
     // Se descartan nombres con letras rotas por un error de codificación ("AndalucÃ­a")
     if (t.nombreOsm && !/[ÃÂ]/.test(t.nombreOsm) && clavesNombre(t.nombreOsm).some((k) => claves.has(k))) {
       votos.set(t.nombreOsm, (votos.get(t.nombreOsm) ?? 0) + t.longitud)
@@ -308,6 +317,7 @@ for (const p of portales.features) {
 // 4. Recorrido de cada calle: dónde empieza, dónde termina y qué calles cruza, en orden
 const tramosEnNodo = new Map()
 for (const t of tramos) {
+  if (t.plaza) continue // una plaza no cuenta como calle que empieza, acaba o se cruza
   for (const p of [t.linea[0], t.linea.at(-1)]) {
     const k = clave(p)
     if (!tramosEnNodo.has(k)) tramosEnNodo.set(k, [])
@@ -657,7 +667,7 @@ await guardar('calles.json', calles)
 await guardar(
   'tramos.json',
   coleccion(
-    tramos.map((t) => {
+    tramos.filter((t) => !t.plaza).map((t) => {
       // La línea se guarda en el sentido de la circulación: "unico" se recorre del primer punto al último
       const unico = t.sentido === 'directo' || t.sentido === 'inverso'
       const linea = t.sentido === 'inverso' ? [...t.linea].reverse() : t.linea
@@ -785,6 +795,26 @@ for (const e of edificiosOsm.elements) {
     via: dir?.via.id ?? null,
     direccionSegun: dir?.fuente ?? null,
     ...zona,
+  })
+}
+// Las plazas: un punto por calle con tramos revisados como "plaza", en medio de esos tramos (pesando su largo)
+const tramosDePlaza = new Map()
+for (const t of tramos.filter((x) => x.plaza && x.via !== null)) {
+  if (!tramosDePlaza.has(t.via)) tramosDePlaza.set(t.via, [])
+  tramosDePlaza.get(t.via).push(t)
+}
+for (const [via, suyos] of tramosDePlaza) {
+  const total = suyos.reduce((s, t) => s + t.longitud, 0) || 1
+  const punto = [0, 1].map((eje) => suyos.reduce((s, t) => s + medio(t.linea[0], t.linea.at(-1))[eje] * t.longitud, 0) / total)
+  lugares.push({
+    id: `plaza${via}`,
+    nombre: vias.get(via).nombre,
+    categoria: 'Plazas',
+    punto: redondear([punto])[0],
+    direccion: null,
+    via,
+    direccionSegun: null,
+    ...zonaDe(punto),
   })
 }
 lugares.sort((a, b) => a.categoria.localeCompare(b.categoria, 'es') || a.nombre.localeCompare(b.nombre, 'es'))
@@ -998,7 +1028,7 @@ const lineasInforme = [
   `- ${miles(tramos.length)} tramos; ${tramos.filter((t) => t.via === null).length} sin calle asignada.`,
   `- Sentido de circulación según: ${porFuente.map(([f, n]) => `${f} ${miles(n)}`).join(', ')}.`,
   `- ${miles(tramos.filter((t) => t.bulevar).length)} tramos sin sentido en el CDAU son de doble sentido por ser bulevares (una calzada de sentido único a cada lado en OpenStreetMap): ${unicos(tramos.filter((t) => t.bulevar).map((t) => nombreVia(t.via)).filter(Boolean)).sort((x, y) => x.localeCompare(y, 'es')).join(', ')}.`,
-  `- ${miles(tramos.filter((t) => t.revisado).length)} tramos ya revisados a mano en el mapa de revisión.`,
+  `- ${miles(tramos.filter((t) => t.revisado).length)} tramos ya revisados a mano en el mapa de revisión; ${miles(tramos.filter((t) => t.plaza).length)} de ellos son parte de una plaza y no de una calle (${miles(tramosDePlaza.size)} plazas, que salen como lugares de interés).`,
   `- **${miles(tramos.filter((t) => t.dudoso).length)} tramos dudosos**: el CDAU y OpenStreetMap dicen cosas distintas. Hay que revisarlos (paso 1.3).`,
   '',
   '| CDAU dice | OpenStreetMap dice | Tramos dudosos |',
@@ -1037,7 +1067,7 @@ const lineasInforme = [
   '',
   '## Lugares de interés',
   '',
-  `${miles(lugares.length)} lugares (OpenStreetMap); ${miles(lugares.filter((l) => l.direccion).length)} con dirección.`,
+  `${miles(lugares.length)} lugares (OpenStreetMap y las plazas de la revisión); ${miles(lugares.filter((l) => l.direccion).length)} con dirección.`,
   '',
   '| Tipo | Lugares | Con dirección |',
   '| --- | --- | --- |',

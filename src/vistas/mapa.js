@@ -374,7 +374,7 @@ export async function abrir(contenedor) {
       crear(
         'dl',
         { class: 'ficha-datos' },
-        dato('Dirección', l.direccion ?? 'Sin dirección'),
+        l.categoria === 'Plazas' ? dato('Qué es', 'Una plaza, no una calle') : dato('Dirección', l.direccion ?? 'Sin dirección'),
         dato('Barrio', l.barrio ?? '—'),
       ),
       l.direccion && l.direccionSegun !== 'osm' && crear('p', { class: 'ficha-nota' }, 'Dirección aproximada: la del portal más cercano.'),
@@ -696,6 +696,10 @@ export async function abrir(contenedor) {
     grupos: GRUPOS.map((g) => g.nombre),
     ...leerAjustes(),
   }
+  // Un grupo de lugares que no existía cuando se guardaron los ajustes sale ya marcado (las plazas llegaron el 6-11-2026)
+  const gruposConocidos = ajustes.gruposConocidos ?? GRUPOS.map((g) => g.nombre).filter((n) => n !== 'Plazas')
+  for (const g of GRUPOS) if (!gruposConocidos.includes(g.nombre) && !ajustes.grupos.includes(g.nombre)) ajustes.grupos.push(g.nombre)
+  ajustes.gruposConocidos = GRUPOS.map((g) => g.nombre)
   // Zona de los parques: lo que se ve con la casilla, y los nombres (que se pueden quitar aparte)
   const CAPAS_ZONA = ['municipios-relleno', 'municipios-borde', 'carreteras-borde', 'carreteras', 'pueblos', 'salidas']
   const NOMBRES_ZONA = ['carreteras-codigos', 'pueblos-nombres', 'granada-nombre', 'salidas-numeros']
