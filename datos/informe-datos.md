@@ -23,15 +23,15 @@ Generado el 2026-11-11 con los datos descargados entre el 2026-10-27 y el 2026-1
 - 9401 tramos; 0 sin calle asignada.
 - Sentido de circulación según: callejero oficial (CDAU) 6739, OpenStreetMap 2535, sin dato 127.
 - 61 tramos sin sentido en el CDAU son de doble sentido por ser bulevares (una calzada de sentido único a cada lado en OpenStreetMap): Avenida de América, Avenida de Barcelona, Avenida de Francisco Ayala, Avenida de las Alpujarras, Avenida de las Fuerzas Armadas, Avenida de Pulianas, Avenida Don Bosco, Avenida Juan Pablo II, Avenida Maracena (Cerrillo), Avenida Profesor Domínguez Ortiz, Calle Alcalde Díaz Berbel, Calle Calicasas, Calle Doctor Severo Ochoa, Calle El Castañal, Calle Emir, Calle José Tamayo, Calle Julio Verne, Calle Maestro Faus, Calle María Auxiliadora, Calle Náyades, Calle Neptuno, Calle Padre Francisco Palau y Quer, Calle Padre Marcelino Álvarez, Calle Paquito Rodríguez, Calle Pedro Machuca, Calle Periodista José Fernández Martínez, Calle Periodista José Mezcua Ruiz, Calle Periodista Luis Seco de Lucena, Calle Profesor Clavera, Calle Rector José Vida Soria, Calle Tórtola, Camino Bajo de Huétor, Carretera A-395 de Granada a Sierra Nevada, Carretera A-4006 Distribuidor Norte de Granada, Carretera de La Zubia, Carretera de Málaga, Carretera GR-3202 de Granada a Monachil (A-395), Carretera GR-3209 de Granada (A-395) a Dílar, Carretera N-432 de Granada a Badajoz, Cuesta de la Plata, Paseo del Violón.
-- 526 tramos ya revisados a mano en el mapa de revisión; 25 de ellos son parte de una plaza y no de una calle (17 plazas, que salen como lugares de interés).
-- **925 tramos dudosos**: el CDAU y OpenStreetMap dicen cosas distintas. Hay que revisarlos (paso 1.3).
+- 528 tramos ya revisados a mano en el mapa de revisión; 25 de ellos son parte de una plaza y no de una calle (17 plazas, que salen como lugares de interés).
+- **923 tramos dudosos**: el CDAU y OpenStreetMap dicen cosas distintas. Hay que revisarlos (paso 1.3).
 
 | CDAU dice | OpenStreetMap dice | Tramos dudosos |
 | --- | --- | --- |
 | doble sentido | peatonal | 310 |
-| doble sentido | sentido único | 206 |
+| doble sentido | sentido único | 205 |
 | peatonal | doble sentido | 128 |
-| sentido único | doble sentido | 106 |
+| sentido único | doble sentido | 105 |
 | sentido único | sentido único, pero al revés | 73 |
 | sentido único | peatonal | 71 |
 | peatonal | sentido único | 31 |
@@ -55,7 +55,7 @@ Códigos de circulación del CDAU, deducidos comparando cada tramo con OpenStree
 - 329 trozos (46.167 m) que no están en el callejero, añadidos desde OpenStreetMap: carreteras, enlaces y caminos de las afueras.
 - 5925 cruces (92 %) se comunican todos entre sí respetando los sentidos. El resto son sobre todo calles sin salida de un solo sentido, urbanizaciones y errores de sentido.
 - Giros prohibidos de OpenStreetMap: 346 aplicados de 469 (79 sin un cruce parecido en el callejero, 21 con una calle sin datos, 4 que pasan por una calle entera, 19 que no cuentan: los «excepto autobús» de las calles sin limitación y los de Gran Vía, que es una calle normal).
-- 1081 tramos dudosos o sin sentido conocido: no se usarán en las preguntas de trayectos.
+- 1078 tramos dudosos o sin sentido conocido: no se usarán en las preguntas de trayectos.
 - 405 tramos con el paso limitado según OpenStreetMap (residentes, autobús y taxi, privados): las rutas solo pasan por ellos si no hay otro camino. Gran Vía, Reyes Católicos, Recogidas y Antonio Dalmases no cuentan: se pasa por ellas sin limitación.
 
 ## Lugares de interés

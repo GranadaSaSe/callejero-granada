@@ -1021,6 +1021,11 @@
    "eleccion": "osm",
    "fecha": "2026-10-29T10:29:46.150Z"
   },
+  "292005383": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-11-11T12:10:35.474Z"
+  },
   "292005480": {
    "sentido": "inverso",
    "eleccion": "osm",
@@ -1285,6 +1290,11 @@
    "sentido": "doble",
    "eleccion": "oficial",
    "fecha": "2026-10-29T10:20:57.075Z"
+  },
+  "292007731": {
+   "sentido": "doble",
+   "eleccion": "osm",
+   "fecha": "2026-11-11T12:08:27.374Z"
   },
   "292007746": {
    "sentido": "directo",
