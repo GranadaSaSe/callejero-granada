@@ -11,6 +11,8 @@ export const TIPOS_DONDE = [
   { id: 'todas', nombre: 'Todas las calles', calles: 6 },
   { id: 'lugares', nombre: 'Lugares de interés', lugares: true },
   { id: 'mezcla', nombre: 'Calles y lugares', calles: 4, lugares: true },
+  // Paso 3.5: solo los edificios singulares de la lista oficial
+  { id: 'singulares', nombre: 'Edificios singulares', lugares: true, categorias: ['Edificios singulares'] },
 ]
 
 // 100 puntos a menos de 50 m; unos 70 a 200 m, unos 30 a 500 m y casi nada pasado 1 km
@@ -93,7 +95,7 @@ export function candidatas({ calles, tramos, lugares }, { tipo, zona }) {
 
   if (ajuste.lugares) {
     for (const l of lugares) {
-      if (!l.punto || !enZona([l.distrito])) continue
+      if (!l.punto || !enZona([l.distrito]) || (ajuste.categorias && !ajuste.categorias.includes(l.categoria))) continue
       const clave = `lugar:${l.nombre}`
       if (sitios.has(clave)) {
         sitios.get(clave).puntos.push(l.punto)

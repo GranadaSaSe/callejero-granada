@@ -1,5 +1,7 @@
 // Crea las tarjetas de repaso (paso 1.6) a partir de los datos de calles, lugares y ejes, y de la zona de los
-// parques de Granada (paso 2.5: sus tarjetas salen de src/zona-preguntas.js).
+// parques de Granada (paso 2.5: sus tarjetas salen de src/zona-preguntas.js). Con el material de la persona
+// (paso 3.5): el distrito y el parque de bomberos de cada sitio, los edificios singulares y de gran altura, y
+// cómo incorporarse a una calle desde otra (en el mazo de sentidos).
 // Cada tarjeta tiene un id fijo (el progreso se guarda por id) y su texto se calcula con los datos del
 // momento, así que si se corrige un dato la tarjeta muestra ya la respuesta corregida.
 // Este archivo no usa nada del navegador, así que se puede probar con Node.
@@ -11,8 +13,26 @@ export const MAZOS = [
   { id: 'sentido', nombre: 'Sentido de circulación' },
   { id: 'cruces', nombre: 'Cruces de los ejes, en orden' },
   { id: 'lugares', nombre: 'En qué calle está cada lugar' },
-  { id: 'carreteras', nombre: 'Pueblos, salidas y carreteras de la zona' },
+  { id: 'carreteras', nombre: 'Pueblos, salidas, carreteras y polígonos de la zona' },
+  { id: 'parques', nombre: 'Distrito y parque de bomberos de cada sitio' },
+  { id: 'edificios', nombre: 'Edificios singulares y de gran altura' },
 ]
+
+// Cómo se entra en una calle desde otra (examen de 2022), con las cuatro respuestas del Kahoot
+export const GIROS = {
+  derecha: 'Girando a la derecha',
+  izquierda: 'Girando a la izquierda',
+  ambos: 'Girando a derecha o izquierda indistintamente',
+}
+const SEGUIR_RECTO = 'Siguiendo recto'
+const DISTRITOS = ['Albaicín', 'Beiro', 'Centro', 'Chana', 'Genil', 'Norte', 'Ronda', 'Zaidín']
+// Si el nombre de un edificio lleva el de su calle («Corrala de Santiago», en Calle Santiago), la pregunta se responde sola
+const sinTildes = (texto) => texto.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+export function nombreLlevaLaCalle(nombre, calle) {
+  const base = sinTildes(calle).replace(/^(calle|avenida|plaza|placeta|plazoleta|paseo|camino|cuesta|callejon|carrera|carril|barranco|pasaje|glorieta)\s+((de|del|de la|de los|de las)\s+)?/, '')
+  return sinTildes(nombre).includes(base)
+}
+const textoDistritoParque = (distrito, parque) => `Distrito ${distrito}, Parque ${parque}`
 
 // Los lugares más útiles para un bombero, primero
 const ORDEN_LUGARES = [
@@ -21,6 +41,8 @@ const ORDEN_LUGARES = [
   'Iglesias y templos', 'Cultura', 'Miradores', 'Transporte', 'Instalaciones deportivas', 'Parques y jardines',
   'Centros comerciales y mercados', 'Escuelas infantiles', 'Cementerios', 'Fuentes',
 ]
+// Los edificios singulares (lista oficial) van los primeros
+ORDEN_LUGARES.unshift('Edificios singulares')
 const LADOS = { i: 'sale a la izquierda', d: 'sale a la derecha', a: 'la atraviesa' }
 
 const juntar = (lista) => (lista.length <= 1 ? lista.join('') : `${lista.slice(0, -1).join(', ')} y ${lista.at(-1)}`)
@@ -42,11 +64,21 @@ function sentidoClaro(c) {
   return null
 }
 
-// "zona" ({ municipios, salidas }) es opcional: sin ella, el mazo de la zona queda vacío
-export function crearTarjetas({ calles, lugares, ejes, zona = null }) {
+// Respuestas falsas de «¿a qué distrito y parque pertenece?»: el mismo distrito con el otro parque y los distritos
+// de alrededor (los de las calles con las que se cruza) con los dos parques
+function falsasDistritoParque(distrito, parque, cercanos) {
+  const otro = parque === 'Norte' ? 'Sur' : 'Norte'
+  const otros = [...new Set([...cercanos, ...DISTRITOS])].filter((d) => d !== distrito)
+  return [textoDistritoParque(distrito, otro), ...otros.slice(0, 3).flatMap((d) => [textoDistritoParque(d, parque), textoDistritoParque(d, otro)])]
+}
+
+// "zona" ({ municipios, salidas, poligonos, redes }) es opcional: sin ella, el mazo de la zona queda vacío.
+// "altos": los edificios de gran altura (altos.json).
+export function crearTarjetas({ calles, lugares, ejes, zona = null, altos = [] }) {
   const ordenadas = [...calles].sort(porImportancia)
   const mazos = Object.fromEntries(MAZOS.map((m) => [m.id, []]))
   if (zona) mazos.carreteras = tarjetasZona(zona)
+  const distritoDeCalle = new Map(calles.map((c) => [c.nombre, c.distritos[0]]))
 
   for (const c of ordenadas) {
     const base = { distrito: c.distritos[0] ?? null, enlace: `#/mapa?calle=${c.id}` }
@@ -80,6 +112,32 @@ export function crearTarjetas({ calles, lugares, ejes, zona = null }) {
         respuesta: sentido,
         detalle: extremosClaros(c) ? `Va de ${c.inicio[0]} a ${c.fin[0]}.` : null,
         datos: extremosClaros(c) ? { inicio: c.inicio[0], fin: c.fin[0] } : null,
+      })
+    }
+    // «¿Cómo podemos incorporarnos a A desde B?» (calculado con la red de los trayectos)
+    for (const x of c.incorporaciones ?? []) {
+      const respuesta = GIROS[x.giro]
+      mazos.sentido.push({
+        ...base,
+        id: `sentido:${c.id}:incorporar:${x.calle}`,
+        mazo: 'sentido',
+        pregunta: `¿Cómo podemos incorporarnos a ${x.calle} desde ${c.nombre}?`,
+        respuesta,
+        detalle: `Al llegar al final de ${c.nombre}, según el sentido de ${x.calle} y los giros permitidos.`,
+        datos: { falsas: [...Object.values(GIROS), SEGUIR_RECTO].filter((g) => g !== respuesta) },
+      })
+    }
+    // Distrito y parque de bomberos (paso 3.5: línea del PDF entre el Parque Norte y el Parque Sur)
+    if (['Norte', 'Sur'].includes(c.parque) && !c.parqueAproximado && c.distritos.length === 1) {
+      const cercanos = [...c.inicio, ...c.fin, ...c.cruces].map((n) => distritoDeCalle.get(n)).filter(Boolean)
+      mazos.parques.push({
+        ...base,
+        id: `parques:c:${c.id}`,
+        mazo: 'parques',
+        pregunta: `¿A qué distrito y parque de bomberos pertenece ${c.nombre}?`,
+        respuesta: textoDistritoParque(c.distritos[0], c.parque),
+        detalle: c.barrios.length ? `Barrio${c.barrios.length > 1 ? 's' : ''}: ${juntar(c.barrios)}.` : null,
+        datos: { falsas: falsasDistritoParque(c.distritos[0], c.parque, cercanos) },
       })
     }
   }
@@ -122,11 +180,69 @@ export function crearTarjetas({ calles, lugares, ejes, zona = null }) {
       respuesta: l.direccion,
       detalle: [
         `${l.categoria} · ${[l.distrito, l.barrio].filter(Boolean).join(', ')}.`,
-        l.direccionSegun !== 'osm' && 'Dirección aproximada (portal más cercano).',
+        ['portal', 'cercania'].includes(l.direccionSegun) && 'Dirección aproximada (portal más cercano).',
+        l.direccionSegun === 'material' && 'Calle de la lista oficial de edificios singulares.',
       ]
         .filter(Boolean)
         .join(' '),
       datos: { categoria: l.categoria, via: l.via },
+    })
+  }
+
+  // Distrito y parque de bomberos de cada lugar
+  for (const l of [...lugares].sort((a, b) => rango(a) - rango(b))) {
+    if (!['Norte', 'Sur'].includes(l.parque) || l.parqueAproximado || !l.distrito) continue
+    mazos.parques.push({
+      id: `parques:l:${l.id}`,
+      mazo: 'parques',
+      distrito: l.distrito,
+      enlace: `#/mapa?lugar=${l.id}`,
+      pregunta: `¿A qué distrito y parque de bomberos pertenece ${l.nombre}?`,
+      respuesta: textoDistritoParque(l.distrito, l.parque),
+      detalle: [`${l.categoria}.`, l.direccion && `${l.direccion}.`].filter(Boolean).join(' '),
+      datos: { falsas: falsasDistritoParque(l.distrito, l.parque, []) },
+    })
+  }
+  // Las calles y los lugares, intercalados (si no, salen primero cientos de calles)
+  const callesParque = mazos.parques.filter((t) => t.id.startsWith('parques:c:'))
+  const lugaresParque = mazos.parques.filter((t) => t.id.startsWith('parques:l:'))
+  mazos.parques = []
+  for (let i = 0; i < Math.max(callesParque.length, lugaresParque.length); i++) mazos.parques.push(callesParque[i], lugaresParque[i])
+  mazos.parques = mazos.parques.filter(Boolean)
+
+  // Edificios singulares: «¿qué edificio singular está en la calle X?» (si en esa calle solo hay uno)
+  const singulares = lugares.filter((l) => l.singular && l.via)
+  for (const l of singulares) {
+    const calle = l.direccion.split(',')[0]
+    if (singulares.filter((x) => x.via === l.via).length > 1 || nombreLlevaLaCalle(l.nombre, calle)) continue
+    mazos.edificios.push({
+      id: `edificios:singular:${l.id}`,
+      mazo: 'edificios',
+      distrito: l.distrito,
+      enlace: `#/mapa?lugar=${l.id}`,
+      pregunta: `¿Qué edificio singular se encuentra en ${calle}?`,
+      respuesta: l.nombre,
+      detalle: `${l.direccion} · ${[l.distrito, l.barrio].filter(Boolean).join(', ')}.`,
+      datos: {
+        falsas: [...singulares.filter((x) => x.distrito === l.distrito), ...singulares].map((x) => x.nombre).filter((n) => n !== l.nombre),
+      },
+    })
+  }
+  // Edificios de gran altura: «¿cuántas plantas tiene...?» (solo los de dirección con número y sin repetir)
+  const vecesDireccion = new Map()
+  for (const a of altos) vecesDireccion.set(a.direccion, (vecesDireccion.get(a.direccion) ?? 0) + 1)
+  const plantas = (n) => `${n} plantas`
+  for (const a of altos) {
+    if (!a.direccion || a.direccion.endsWith('s/n') || vecesDireccion.get(a.direccion) > 1) continue
+    mazos.edificios.push({
+      id: `edificios:alto:${a.refcat}`,
+      mazo: 'edificios',
+      distrito: a.distrito,
+      enlace: `#/mapa?lugar=${a.id}`,
+      pregunta: `¿Cuántas plantas tiene el edificio de ${a.direccion}${a.nombre ? ` (${a.nombre})` : ''}?`,
+      respuesta: plantas(a.plantas),
+      detalle: `Según el Catastro (plantas sobre rasante, contando la baja). Distrito ${a.distrito}, Parque ${a.parque}.`,
+      datos: { falsas: [-2, 2, -1, 1, 3, -3, 4].map((d) => a.plantas + d).filter((n) => n > 0).map(plantas) },
     })
   }
   return mazos
@@ -149,7 +265,10 @@ export function crearOpciones(t, mazos, azar = Math.random) {
   const correcta = t.respuesta
   const algunaDe = (lista) => lista[Math.floor(azar() * lista.length)]
   let falsas = []
-  if (t.mazo === 'zona') {
+  if (t.datos?.falsas) {
+    // Las tarjetas que ya traen sus respuestas falsas más parecidas (zona, parques, edificios, incorporaciones)
+    falsas = elegir(t.datos.falsas, 3, correcta, azar)
+  } else if (t.mazo === 'zona') {
     falsas = elegir(mazos.zona.map((x) => x.respuesta), 3, correcta, azar)
   } else if (t.mazo === 'extremos') {
     // La buena al revés y mezclas con calles que de verdad cruza

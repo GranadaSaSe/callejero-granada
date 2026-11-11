@@ -8,8 +8,8 @@ import { anadirNota, guardarAutor, leerAutor, TIPOS_PREGUNTA } from './notas.js'
 export function buscadorDeReferencias(calles, lugares) {
   const callePorId = new Map(calles.map((c) => [String(c.id), c]))
   const lugarPorId = new Map(lugares.map((l) => [l.id, l]))
-  return (enlace = '') => {
-    const [, campo, id] = enlace.match(/[?&](calle|id|lugar)=([\w-]+)/) ?? []
+  return (enlace) => {
+    const [, campo, id] = (enlace ?? '').match(/[?&](calle|id|lugar)=([\w-]+)/) ?? []
     const calle = campo === 'lugar' ? null : callePorId.get(id)
     const lugar = campo === 'lugar' ? lugarPorId.get(id) : null
     return {

@@ -5,7 +5,7 @@
 // pueblo, una carretera o una salida se abre su ficha, y el buscador lleva a cualquiera de ellos.
 import { LngLatBounds } from 'maplibre-gl'
 import { crear, normalizar } from '../crear.js'
-import { cargar, GRUPOS, grupoDe } from '../datos.js'
+import { cargar, GRUPOS, grupoDe, textoParque } from '../datos.js'
 import {
   alCambiarNotas,
   anadirNota,
@@ -79,15 +79,26 @@ export async function abrir(contenedor) {
     ),
   )
 
-  let calles, tramos, zonas, fondo, lugares, municipios, carreteras, salidas
+  let calles, tramos, zonas, fondo, lugares, municipios, carreteras, salidas, altos, poligonos, parques
   try {
-    ;[calles, tramos, zonas, fondo, lugares, municipios, carreteras, salidas] = await Promise.all(
-      ['calles', 'tramos', 'zonas', 'fondo', 'lugares', 'municipios', 'carreteras', 'salidas'].map(cargar),
+    ;[calles, tramos, zonas, fondo, lugares, municipios, carreteras, salidas, altos, poligonos, parques] = await Promise.all(
+      ['calles', 'tramos', 'zonas', 'fondo', 'lugares', 'municipios', 'carreteras', 'salidas', 'altos', 'poligonos', 'parques'].map(cargar),
     )
   } catch (error) {
     aviso.textContent = `No se han podido cargar los datos del mapa. Abre la app una vez con internet. (${error.message})`
     return {}
   }
+  // Edificios de gran altura (Catastro) y polígonos industriales de la zona: en el mapa van como lugares
+  lugares = [
+    ...lugares,
+    ...altos.map((a) => ({
+      ...a,
+      nombre: a.nombre ?? `Edificio de ${a.plantas} plantas`,
+      categoria: 'Edificios de gran altura',
+      direccionSegun: 'catastro',
+    })),
+    ...poligonos.filter((p) => p.punto).map((p) => ({ ...p, categoria: 'Polígonos industriales', distrito: p.distrito ?? p.municipio })),
+  ]
 
   const callePorId = new Map(calles.map((c) => [c.id, c]))
   const lugarPorId = new Map(lugares.map((l) => [l.id, l]))
@@ -124,6 +135,13 @@ export async function abrir(contenedor) {
   }
   const limitesMunicipio = new Map(municipios.features.map((f) => [f.properties.nombre, limitesDe(f.geometry.coordinates.flat())]))
   const lineasCarretera = new Map()
+  // Tipo de red de cada código: Red Básica Estructurante, Complementaria Metropolitana...
+  const tipoRedCarretera = new Map()
+  for (const f of carreteras.features) {
+    for (const c of f.properties.codigo.split(' / ')) {
+      if (f.properties.tipoRed && !tipoRedCarretera.has(c)) tipoRedCarretera.set(c, f.properties.tipoRed)
+    }
+  }
   const redesCarretera = new Map()
   const nombresCarretera = new Map()
   for (const f of carreteras.features) {
@@ -238,6 +256,7 @@ export async function abrir(contenedor) {
         dato('Empieza en', listaCalles(c.inicio, c)),
         dato('Termina en', listaCalles(c.fin, c)),
         dato('Sentido', textoSentido(c)),
+        textoParque(c.parque) && dato('Parque de bomberos', textoParque(c.parque, c.parqueAproximado)),
       ),
       c.cruces.length > 0 && [
         crear('h3', {}, `Calles que cruza, en orden (${c.cruces.length})`),
@@ -364,20 +383,31 @@ export async function abrir(contenedor) {
   }
 
   function elegirLugar(l, centrar = false) {
+    if (l.categoria === 'Polígonos industriales') return elegirPoligono(l, centrar)
     const calle = callePorId.get(l.via)
     quitarSeleccionZona()
     mapa.setFilter('lugar-elegido', ['==', ['get', 'id'], l.id])
     mapa.setFilter('seleccion', calle ? ['==', ['get', 'via'], calle.id] : NADA)
+    const notaDireccion = {
+      portal: 'Dirección aproximada: la del portal más cercano.',
+      cercania: 'Dirección aproximada: la calle más cercana.',
+      catastro: 'Dirección y plantas según el Catastro (plantas sobre rasante, contando la baja).',
+      material: 'Edificio singular de la lista oficial: la calle es la de esa lista.',
+    }[l.direccionSegun]
     mostrarFicha([
       crear('p', { class: 'ficha-tipo' }, [l.categoria, l.distrito].join(' · ')),
       crear('h2', {}, l.nombre),
+      l.nombreOsm && crear('p', { class: 'ficha-nota' }, `También: ${l.nombreOsm}`),
       crear(
         'dl',
         { class: 'ficha-datos' },
-        l.categoria === 'Plazas' ? dato('Qué es', 'Una plaza, no una calle') : dato('Dirección', l.direccion ?? 'Sin dirección'),
+        l.categoria === 'Plazas' ? dato('Qué es', 'Una plaza, no una calle') : dato(l.singular ? 'Acceso' : 'Dirección', l.direccion ?? 'Sin dirección'),
+        l.plantas && dato('Plantas', `${l.plantas}`),
         dato('Barrio', l.barrio ?? '—'),
+        textoParque(l.parque) && dato('Parque de bomberos', textoParque(l.parque, l.parqueAproximado)),
       ),
-      l.direccion && l.direccionSegun !== 'osm' && crear('p', { class: 'ficha-nota' }, 'Dirección aproximada: la del portal más cercano.'),
+      notaDireccion && crear('p', { class: 'ficha-nota' }, notaDireccion),
+      l.notaCalle && crear('p', { class: 'ficha-nota' }, `${l.notaCalle}.`),
       crear(
         'div',
         { class: 'chips' },
@@ -386,6 +416,32 @@ export async function abrir(contenedor) {
       ),
     ])
     if (centrar) mapa.easeTo({ center: l.punto, zoom: Math.max(mapa.getZoom(), 16.5), padding: margen(), duration: 700 })
+  }
+
+  // Polígono industrial (paso 3.5, lista del PDF de la persona): su municipio, cómo se llega y la carretera cercana
+  function elegirPoligono(p, centrar = false) {
+    quitarSeleccionZona()
+    mapa.setFilter('seleccion', NADA)
+    mapa.setFilter('lugar-elegido', ['==', ['get', 'id'], p.id])
+    mostrarFicha([
+      crear('p', { class: 'ficha-tipo' }, `Polígono industrial · ${p.municipio}`),
+      crear('h2', {}, p.nombre),
+      crear(
+        'dl',
+        { class: 'ficha-datos' },
+        dato('Municipio', chipPueblo(p.municipio)),
+        p.nota && dato('Según el material', p.nota),
+        p.carretera && dato('Se llega por', chipCarretera(p.carretera)),
+        p.cerca && dato('Carretera más cercana', crear('span', {}, chipCarretera(p.cerca.codigo), ` a ${p.cerca.metros} m`)),
+        p.municipio === 'Granada' && p.barrio && dato('Barrio', p.barrio),
+        p.parque && dato('Parque de bomberos', textoParque(p.parque)),
+      ),
+      p.aproximado && crear('p', { class: 'ficha-nota' }, 'Situado de forma aproximada (no está dibujado en OpenStreetMap).'),
+      p.municipioOsm && crear('p', { class: 'ficha-nota' }, `En OpenStreetMap cae en el término de ${p.municipioOsm}; el material dice ${p.municipio}.`),
+      p.nombreOsm && crear('p', { class: 'ficha-nota' }, `En OpenStreetMap: ${p.nombreOsm}.`),
+      botonNota(() => p.punto, { titulo: p.nombre }),
+    ])
+    if (centrar) mapa.easeTo({ center: p.punto, zoom: Math.max(mapa.getZoom(), 14), padding: margen(), duration: 700 })
   }
 
   // Zona de los parques de Granada (paso 2.5): fichas de pueblo, salida y carretera, enlazadas entre sí
@@ -449,6 +505,16 @@ export async function abrir(contenedor) {
         crear('h3', {}, 'Salidas de autovía en su término'),
         chipsDe(suyas, (s) => chipSalida(s, `${s.carretera} ${s.numero ?? 'sin número'}`)),
       ],
+      poligonos.some((p) => p.municipio === m.nombre) && [
+        crear('h3', {}, 'Polígonos industriales'),
+        chipsDe(
+          poligonos.filter((p) => p.municipio === m.nombre),
+          (p) =>
+            p.punto
+              ? crear('button', { class: 'chip chip-lugar', onclick: () => elegirPoligono(lugarPorId.get(p.id), true) }, p.nombre)
+              : crear('span', { class: 'chip chip-mudo' }, p.nombre),
+        ),
+      ],
       botonNota(() => m.centro, { titulo: m.nombre }),
     ])
     if (centrar) mapa.fitBounds(limitesMunicipio.get(m.nombre), { padding: margen(), maxZoom: 14, duration: 700, bearing: mapa.getBearing() })
@@ -503,6 +569,7 @@ export async function abrir(contenedor) {
     mostrarFicha([
       crear('p', { class: 'ficha-tipo' }, redDe(codigo).nombre),
       crear('h2', {}, codigo),
+      tipoRedCarretera.has(codigo) && crear('dl', { class: 'ficha-datos' }, dato('Red', tipoRedCarretera.get(codigo))),
       nombres.length > 0 && crear('p', { class: 'ficha-nota' }, nombres.slice(0, 3).join(' · ')),
       pasaPor.length > 0 && [crear('h3', {}, `Pasa por (${pasaPor.length})`), chipsDe(pasaPor, chipPueblo)],
       suyas.length > 0 && [
@@ -530,7 +597,7 @@ export async function abrir(contenedor) {
     const buscarEn = (capas) => mapa.queryRenderedFeatures(caja, { layers: capas.filter((c) => mapa.getLayer(c)) })
     const nota = buscarEn(['notas'])[0]
     const fallo = buscarEn(['fallos-circulos'])[0]
-    const lugar = buscarEn(['lugares'])[0]
+    const lugar = buscarEn(['lugares', 'poligonos-lejos'])[0]
     const tramos = buscarEn(['calles', 'calles-peatonales'])
     const salida = buscarEn(['salidas'])[0]
     const carretera = buscarEn(['carreteras'])[0]
@@ -606,7 +673,7 @@ export async function abrir(contenedor) {
   mapa.on('movestart', (e) => e.originalEvent && cancelarPulsacion())
   alCambiarNotas((notas) => mapa.getSource('notas')?.setData(puntosDeNotas(notas)))
 
-  for (const capa of ['notas', 'lugares', 'calles', 'calles-peatonales', 'salidas', 'carreteras']) {
+  for (const capa of ['notas', 'lugares', 'poligonos-lejos', 'calles', 'calles-peatonales', 'salidas', 'carreteras']) {
     mapa.on('mouseenter', capa, () => (mapa.getCanvas().style.cursor = 'pointer'))
     mapa.on('mouseleave', capa, () => (mapa.getCanvas().style.cursor = ''))
   }
@@ -620,7 +687,14 @@ export async function abrir(contenedor) {
       texto: normalizar(`${c.nombre} ${c.nombreOficial ?? ''}`),
       detalle: [c.tipo, c.distritos[0]].filter(Boolean).join(' · '),
     })),
-    ...lugares.map((l) => ({ tipo: 'lugar', dato: l, nombre: l.nombre, texto: normalizar(l.nombre), detalle: `${l.categoria} · ${l.distrito}` })),
+    ...lugares.map((l) => ({
+      tipo: 'lugar',
+      dato: l,
+      nombre: l.nombre,
+      // Los edificios altos casi nunca tienen nombre: se buscan también por su dirección
+      texto: normalizar(l.plantas ? `${l.nombre} ${l.direccion ?? ''}` : l.nombre),
+      detalle: l.plantas ? `${l.direccion ?? 'Sin dirección'} · ${l.distrito}` : `${l.categoria} · ${l.distrito}`,
+    })),
     ...municipios.features.map((f) => ({
       tipo: 'pueblo',
       dato: f,
@@ -693,6 +767,7 @@ export async function abrir(contenedor) {
     fallos: false,
     zonaParques: true,
     nombresZona: true,
+    parques: true,
     grupos: GRUPOS.map((g) => g.nombre),
     ...leerAjustes(),
   }
@@ -712,6 +787,79 @@ export async function abrir(contenedor) {
     nombresLugares: ['lugares-nombres', 'rios-nombres'],
     notas: ['notas'],
     fallos: ['fallos-calor', 'fallos-circulos', 'fallos-numeros'],
+    parques: ['parques-linea', 'parques-prolongacion', 'parques-nombre'],
+  }
+  // Línea entre el Parque Norte y el Parque Sur (paso 3.5) y los polígonos industriales vistos de lejos
+  function anadirCapasMaterial() {
+    mapa.addSource('parques', { type: 'geojson', data: parques })
+    const capas = [
+      {
+        id: 'parques-prolongacion',
+        type: 'line',
+        source: 'parques',
+        filter: ['==', ['get', 'tipo'], 'prolongacion'],
+        paint: { 'line-color': '#6a1b9a', 'line-width': 2, 'line-opacity': 0.35, 'line-dasharray': [1, 2] },
+      },
+      {
+        id: 'parques-linea',
+        type: 'line',
+        source: 'parques',
+        filter: ['==', ['get', 'tipo'], 'limite'],
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: {
+          'line-color': '#6a1b9a',
+          'line-width': ['interpolate', ['linear'], ['zoom'], 11, 2.5, 16, 6],
+          'line-opacity': 0.55,
+          'line-dasharray': [2, 1],
+        },
+      },
+    ]
+    for (const capa of capas) mapa.addLayer(capa, 'lugares')
+    const encima = [
+      {
+        id: 'parques-nombre',
+        type: 'symbol',
+        source: 'parques',
+        filter: ['==', ['get', 'tipo'], 'limite'],
+        layout: {
+          'symbol-placement': 'line',
+          'symbol-spacing': 400,
+          // Sin decir qué lado es cuál: el texto se gira para leerse derecho y podría quedar al revés
+          'text-field': 'Límite entre el Parque Norte y el Sur',
+          'text-font': ['Noto Sans Bold'],
+          'text-size': 11,
+        },
+        paint: { 'text-color': '#6a1b9a', 'text-halo-color': '#ffffff', 'text-halo-width': 2 },
+      },
+      {
+        id: 'poligonos-lejos',
+        type: 'circle',
+        source: 'lugares',
+        minzoom: 9,
+        maxzoom: 14,
+        filter: ['==', ['get', 'grupo'], 'Polígonos industriales'],
+        paint: { 'circle-color': ['get', 'color'], 'circle-radius': 5, 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 1.5 },
+      },
+      {
+        id: 'poligonos-nombres',
+        type: 'symbol',
+        source: 'lugares',
+        minzoom: 11.5,
+        maxzoom: 16,
+        filter: ['==', ['get', 'grupo'], 'Polígonos industriales'],
+        layout: {
+          'text-field': ['get', 'nombre'],
+          'text-font': ['Noto Sans Regular'],
+          'text-size': 11,
+          'text-offset': [0, 0.9],
+          'text-anchor': 'top',
+          'text-max-width': 10,
+          'text-optional': true,
+        },
+        paint: { 'text-color': ['get', 'color'], 'text-halo-color': '#ffffff', 'text-halo-width': 1.5 },
+      },
+    ]
+    for (const capa of encima) mapa.addLayer(capa, 'notas')
   }
   // Mis fallos (paso 2.6): mapa de calor de lo fallado en tarjetas, test y juegos y, de cerca, un círculo por
   // calle, lugar, pueblo o salida con el número de fallos. Se recalcula al encenderlo y al volver al mapa.
@@ -824,6 +972,8 @@ export async function abrir(contenedor) {
     const filtro = ['in', ['get', 'grupo'], ['literal', ajustes.grupos]]
     mapa.setFilter('lugares', filtro)
     mapa.setFilter('lugares-nombres', filtro)
+    const conPoligonos = ajustes.grupos.includes('Polígonos industriales')
+    for (const capa of ['poligonos-lejos', 'poligonos-nombres']) mapa.setLayoutProperty(capa, 'visibility', conPoligonos ? 'visible' : 'none')
   }
   const casillaDe = (ajuste, texto) =>
     casilla(
@@ -855,6 +1005,7 @@ export async function abrir(contenedor) {
     casillaDe('dudosos', 'Sentidos por revisar (?)'),
     casillaDe('notas', 'Notas (mías en rojo, de compañeros en azul)'),
     casillaDe('fallos', 'Mis fallos (mapa de calor)'),
+    casillaDe('parques', 'Límite entre el Parque Norte y el Parque Sur'),
     crear('p', { class: 'ayuda-capas' }, 'Más rojo, más fallos: en tarjetas, test y juegos. De cerca, cada círculo dice cuántas veces has fallado ese sitio.'),
     crear(
       'p',
@@ -907,6 +1058,7 @@ export async function abrir(contenedor) {
   const cargado = new Promise((listo) =>
     mapa.on('load', () => {
       anadirCapasFallos()
+      anadirCapasMaterial()
       aplicarAjustes()
       aviso.remove()
       listo()

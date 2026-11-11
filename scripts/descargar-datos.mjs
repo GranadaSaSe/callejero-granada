@@ -6,12 +6,16 @@
 //   (ríos, parques, vías del tren).
 // - CDAU (Callejero Digital de Andalucía Unificado): nombres oficiales de las vías, tramos con su
 //   sentido de circulación y portales.
+// - Catastro (servicio INSPIRE): edificios del municipio de Granada con sus plantas y sus direcciones,
+//   para los edificios de gran altura.
 //
 // Los archivos se guardan en datos/crudos/ y no se suben a GitHub: se pueden volver a descargar
-// cuando se quiera. Uso: `npm run datos:descargar` (todo) o `npm run datos:descargar -- calles edificios`.
+// cuando se quiera. Uso: `npm run datos:descargar` (todo) o `npm run datos:descargar -- calles edificios`
+// (los nombres son los de OSM y CDAU de abajo, más `catastro`).
 
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { guardarDescomprimido } from './lib/catastro.mjs'
 import { RECTANGULO_ZONA } from './lib/zona-parques.mjs'
 
 const CARPETA = join(import.meta.dirname, '..', 'datos', 'crudos')
@@ -79,6 +83,28 @@ out center tags qt;`,
 out geom qt;
 node["highway"="motorway_junction"];
 out qt;`,
+
+  // Polígonos industriales y parques empresariales o comerciales con nombre de la zona (para situar los de
+  // la lista de scripts/lib/poligonos.mjs)
+  poligonos: `[out:json][timeout:180][bbox:${RECTANGULO_ZONA}];
+(
+  nwr["landuse"="industrial"]["name"];
+  nwr["landuse"~"^(commercial|retail)$"]["name"~"[Pp]ol[ií]gono|Parque (Empresarial|Tecnol|Comercial|Metropolitano)"];
+);
+out center tags qt;`,
+
+  // Edificios con nombre de Granada (para poner nombre a los de gran altura del Catastro)
+  nombresEdificios: `[out:json][timeout:180][bbox:37.12,-3.70,37.24,-3.52];
+(
+  way["building"]["name"];
+  rel["building"]["name"];
+);
+out center tags qt;`,
+
+  // Tipo de red de cada carretera (Red Básica Estructurante, Complementaria Metropolitana, Provincial...)
+  rutas: `[out:json][timeout:180][bbox:${RECTANGULO_ZONA}];
+rel["type"="route"]["route"="road"];
+out tags qt;`,
 
   // Municipios con su pueblo principal (admin_centre), que a veces se llama distinto (Las Gabias: Gabia Grande)
   municipios: `[out:json][timeout:180][bbox:${RECTANGULO_ZONA}];
@@ -163,6 +189,12 @@ async function consultarCdau(nombre, { capa, orden }) {
   return { type: 'FeatureCollection', features: elementos }
 }
 
+// Catastro: edificios (con las plantas de cada parte) y direcciones del municipio de Granada (código 18900)
+const CATASTRO = {
+  edificios: 'https://www.catastro.hacienda.gob.es/INSPIRE/buildings/18/18900-GRANADA/A.ES.SDGC.BU.18900.zip',
+  direcciones: 'https://www.catastro.hacienda.gob.es/INSPIRE/Addresses/18/18900-GRANADA/A.ES.SDGC.AD.18900.zip',
+}
+
 const pedidos = process.argv.slice(2)
 const quiero = (nombre) => pedidos.length === 0 || pedidos.includes(nombre)
 
@@ -184,6 +216,21 @@ for (const [nombre, capa] of Object.entries(CDAU)) {
   const datos = await consultarCdau(nombre, capa)
   await writeFile(join(CARPETA, `cdau-${nombre}.json`), JSON.stringify(datos))
   resumen.archivos[`cdau-${nombre}.json`] = { elementos: datos.features.length }
+}
+
+console.log('Catastro (Dirección General del Catastro, licencia CC BY 4.0)')
+if (quiero('catastro')) {
+  const carpeta = join(CARPETA, 'catastro')
+  await mkdir(carpeta, { recursive: true })
+  for (const [nombre, url] of Object.entries(CATASTRO)) {
+    const respuesta = await fetch(url, { headers: { 'User-Agent': AGENTE }, signal: AbortSignal.timeout(600_000) })
+    if (!respuesta.ok) throw new Error(`Catastro ${nombre}: HTTP ${respuesta.status}`)
+    const zip = join(carpeta, `${nombre}.zip`)
+    await writeFile(zip, Buffer.from(await respuesta.arrayBuffer()))
+    const archivos = await guardarDescomprimido(zip, carpeta)
+    console.log(`  ${nombre}: ${archivos.join(', ')}`)
+    resumen.archivos[`catastro-${nombre}`] = { archivos }
+  }
 }
 
 await writeFile(join(CARPETA, `descarga-${resumen.fecha.slice(0, 10)}.json`), JSON.stringify(resumen, null, 2))

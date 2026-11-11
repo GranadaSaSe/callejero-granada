@@ -48,8 +48,11 @@ export async function abrir(contenedor) {
   const pagina = crear('div', { class: 'pagina' }, crear('p', { class: 'cargando-texto' }, 'Preparando las tarjetas…'))
   contenedor.append(pagina)
 
-  const [calles, lugares, municipios, salidas] = await Promise.all(['calles', 'lugares', 'municipios', 'salidas'].map(cargar))
-  const zona = { municipios, salidas } // zona de los parques de Granada (paso 2.5)
+  const [calles, lugares, municipios, salidas, poligonos, redes, altos] = await Promise.all(
+    ['calles', 'lugares', 'municipios', 'salidas', 'poligonos', 'redes', 'altos'].map(cargar),
+  )
+  // Zona de los parques de Granada (paso 2.5), con sus polígonos y el tipo de red de cada carretera (paso 3.5)
+  const zona = { municipios, salidas, poligonos, redes }
   const estados = leer(CLAVES.estados, {})
   const ajustes = {
     mazos: MAZOS.map((m) => m.id),
@@ -97,7 +100,7 @@ export async function abrir(contenedor) {
 
   // Las tarjetas se crean al momento con los ejes actuales (se pueden cambiar en la pantalla de Ejes)
   function mazosActuales() {
-    const mazos = crearTarjetas({ calles, lugares, ejes: ejesActuales(calles), zona })
+    const mazos = crearTarjetas({ calles, lugares, ejes: ejesActuales(calles), zona, altos })
     const delDistrito = (t) => ajustes.distrito === 'Todos' || t.distrito === ajustes.distrito
     for (const id of Object.keys(mazos)) mazos[id] = mazos[id].filter(delDistrito)
     return mazos

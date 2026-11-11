@@ -9,11 +9,17 @@
 //   salidas.json     salidas de autovía de esa zona con sus destinos en cada sentido
 //   municipios.json  municipios de esa zona con su pueblo principal, vecinos, carreteras que pasan y cómo se
 //                    llega desde Granada
+//   parques.json     línea entre el Parque Norte y el Parque Sur (las calles y los lugares llevan su parque)
+//   poligonos.json   polígonos industriales de la zona (lista del PDF de la persona, situados con OpenStreetMap)
+//   altos.json       edificios de gran altura de Granada con sus plantas (Catastro)
+//
+// Los edificios singulares (lista del PDF de la persona) van en lugares.json con la calle del PDF.
 //
 // Los nombres y los tramos de las calles salen del callejero oficial (CDAU). El sentido de circulación
 // sale del CDAU y, donde no lo trae, de OpenStreetMap; si los dos no coinciden, el tramo queda marcado
 // como dudoso para revisarlo. Escribe además datos/informe-datos.md con las cifras y datos/informe-zona.md
-// con las salidas y los accesos de la zona de los parques de Granada.
+// con las salidas y los accesos de la zona de los parques de Granada, y datos/informe-material.md con lo que sale
+// del material de la persona (parques, polígonos, edificios singulares y de gran altura) para revisarlo.
 //
 // Uso: `npm run datos:procesar` (después de `npm run datos:descargar`).
 
@@ -37,6 +43,12 @@ import {
 } from './lib/geo.mjs'
 import { clavesNombre, normalizar } from './lib/nombres.mjs'
 import { anadirSegmento, crearRed, nivelDeVia, pasoLimitado } from './lib/red-datos.mjs'
+import { direccionesCatastro, partesAltas, TIPOS_CATASTRO, utmALonLat } from './lib/catastro.mjs'
+import { EDIFICIOS_SINGULARES } from './lib/edificios-singulares.mjs'
+import { incorporaciones } from './lib/incorporaciones.mjs'
+import { ladoDeParques, lineaEntreParques } from './lib/parques-datos.mjs'
+import { CALLES_LIMITE } from './lib/parques-limite.mjs'
+import { POLIGONOS } from './lib/poligonos.mjs'
 import { accesosDesdeGranada, codigos, municipiosDeLaZona, salidasDeLaZona, textoAcceso } from './lib/zona-datos.mjs'
 import { ZONA_PARQUES } from './lib/zona-parques.mjs'
 
@@ -58,7 +70,7 @@ const separar = (valor) =>
 // Plaza del Carmen: sin portales, se supone que la calle empieza en el extremo más cercano al centro
 const AYUNTAMIENTO = [-3.5988, 37.1734]
 
-const [limites, callesOsm, restriccionesOsm, edificiosOsm, carreterasOsm, municipiosOsm, fondoOsm, viales, tramosCdau, portales] =
+const [limites, callesOsm, restriccionesOsm, edificiosOsm, carreterasOsm, municipiosOsm, fondoOsm, poligonosOsm, rutasOsm, viales, tramosCdau, portales] =
   await Promise.all(
     [
       'osm-limites',
@@ -68,6 +80,8 @@ const [limites, callesOsm, restriccionesOsm, edificiosOsm, carreterasOsm, munici
       'osm-carreteras',
       'osm-municipios',
       'osm-fondo',
+      'osm-poligonos',
+      'osm-rutas',
       'cdau-viales',
       'cdau-tramos',
       'cdau-portales',
@@ -662,7 +676,46 @@ for (const via of vias.values()) {
   })
 }
 calles.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
-await guardar('calles.json', calles)
+
+// Parque de bomberos de cada calle (scripts/lib/parques-limite.mjs, del PDF de la persona): al norte de la línea,
+// el Parque Norte; al sur, el Sur. Las calles de la propia línea son «límite» y las que la cruzan, «los dos».
+const lineaParques = lineaEntreParques((id) => {
+  const via = vias.get(id)
+  return via ? [...via.tramos, ...via.tramosPlaza].map((t) => t.linea) : []
+})
+const ladoParques = ladoDeParques(lineaParques)
+const callesDelLimite = new Set(CALLES_LIMITE.map(([id]) => id))
+for (const c of calles) {
+  if (callesDelLimite.has(c.id)) {
+    c.parque = 'límite'
+    continue
+  }
+  const metros = { Norte: 0, Sur: 0 }
+  let aproximados = 0
+  for (const t of vias.get(c.id).tramos) {
+    const p = medio(...segmentoCentral(t.linea))
+    metros[ladoParques.parque(p)] += t.longitud
+    if (ladoParques.aproximado(p)) aproximados += t.longitud
+  }
+  const total = metros.Norte + metros.Sur || 1
+  c.parque = metros.Norte / total >= 0.9 ? 'Norte' : metros.Sur / total >= 0.9 ? 'Sur' : 'los dos'
+  if (aproximados > total / 2) c.parqueAproximado = true
+}
+await guardar(
+  'parques.json',
+  coleccion([
+    { type: 'Feature', properties: { tipo: 'limite' }, geometry: { type: 'LineString', coordinates: redondear(lineaParques.linea) } },
+    // Prolongación de la línea más allá de sus puntas (aproximada: el PDF no la dice)
+    {
+      type: 'Feature',
+      properties: { tipo: 'prolongacion' },
+      geometry: {
+        type: 'MultiLineString',
+        coordinates: [redondear([ladoParques.oeste, lineaParques.linea[0]]), redondear([lineaParques.linea.at(-1), ladoParques.este])],
+      },
+    },
+  ]),
+)
 
 await guardar(
   'tramos.json',
@@ -700,6 +753,11 @@ const { red, informe: informeRed } = crearRed({
   importanciaDeClase: (clase) => IMPORTANCIA[clase] ?? 6,
 })
 await guardar('red.json', red)
+
+// «¿Cómo me incorporo a la calle A desde la calle B?»: hacia qué lado se gira al llegar al final de B (examen de 2022)
+const giros = incorporaciones(red, calles)
+for (const c of calles) if (giros.has(c.id)) c.incorporaciones = giros.get(c.id)
+await guardar('calles.json', calles)
 
 // Tramos dudosos para el mapa de revisión, de las calles principales a las secundarias.
 // "directo" e "inverso" se refieren al sentido en que está dibujada la línea (del primer punto al último).
@@ -817,8 +875,124 @@ for (const [via, suyos] of tramosDePlaza) {
     ...zonaDe(punto),
   })
 }
+// Calle por su nombre: primero la que se llama exactamente así; si hay varias, la más cercana a "cerca"
+function viaPorNombre(nombre, cerca = null) {
+  const claves = clavesNombre(nombre)
+  const exactas = (viasPorClave.get(claves[0]) ?? []).filter((v) => v.tramos.length)
+  const candidatas = exactas.length ? exactas : unicos(claves.flatMap((k) => viasPorClave.get(k) ?? [])).filter((v) => v.tramos.length)
+  if (candidatas.length > 1 && cerca) return viaMasCercana(candidatas, cerca) ?? candidatas[0]
+  return candidatas[0] ?? null
+}
+const centroDeVia = (via) => {
+  const t = via.tramos.reduce((a, b) => (b.longitud > a.longitud ? b : a))
+  return medio(...segmentoCentral(t.linea))
+}
+
+// Edificios singulares (scripts/lib/edificios-singulares.mjs, del PDF de la persona). Su calle es la del PDF. Si ya
+// están en OpenStreetMap (mismo nombre, a menos de 500 m de su calle) se usa ese lugar, con el nombre y la
+// dirección del PDF; si no, se añaden en el portal con ese número o en medio de la calle.
+const informeSingulares = []
+for (const e of EDIFICIOS_SINGULARES) {
+  const via = viaPorNombre(e.calle)
+  const claves = new Set([e.nombre, ...(e.otros ?? [])].flatMap((n) => clavesNombre(n).slice(0, 1)))
+  const deOsm = lugares
+    .filter((l) => !l.singular && clavesNombre(l.nombre).some((k) => claves.has(k)))
+    .filter((l) => !via || via.tramos.some((t) => t.linea.some((p, i) => i && distanciaASegmento(l.punto, t.linea[i - 1], p) < 500)))
+  const lugar = deOsm[0] ?? null
+  let punto = lugar?.punto ?? null
+  let segun = lugar ? 'osm' : null
+  if (!punto && via) {
+    const portal = e.numero && via.portales.find((p) => String(p.etiqueta) === e.numero || String(p.numero) === e.numero)
+    punto = portal ? portal.punto : centroDeVia(via)
+    segun = portal ? 'portal' : 'calle'
+  }
+  const direccion = via ? [via.nombre, e.numero].filter(Boolean).join(', ') : e.calle
+  const datos = {
+    nombre: e.nombre,
+    categoria: 'Edificios singulares',
+    direccion,
+    via: via?.id ?? null,
+    direccionSegun: 'material',
+    singular: true,
+    ...(e.notaCalle && { notaCalle: e.notaCalle }),
+  }
+  if (lugar) {
+    Object.assign(lugar, { ...datos, nombreOsm: lugar.nombre !== e.nombre ? lugar.nombre : undefined, direccionOsm: lugar.direccion ?? undefined })
+  } else if (punto) {
+    lugares.push({ id: `singular${normalizar(e.nombre).replaceAll(' ', '-')}`, ...datos, punto: redondear([punto])[0], ...zonaDe(punto) })
+  }
+  informeSingulares.push({ ...e, via: via?.nombre ?? null, situado: lugar ? `OpenStreetMap: ${lugar.nombreOsm ?? lugar.nombre}` : segun === 'portal' ? 'portal del CDAU' : segun === 'calle' ? 'centro de la calle (aproximado)' : 'sin situar' })
+}
+
+// Parque de bomberos de cada lugar de la ciudad (los que están justo en la línea, a menos de 25 m, son «límite»)
+for (const l of lugares) {
+  l.parque = ladoParques.metrosALinea(l.punto) < 25 ? 'límite' : ladoParques.parque(l.punto)
+  if (ladoParques.aproximado(l.punto)) l.parqueAproximado = true
+}
 lugares.sort((a, b) => a.categoria.localeCompare(b.categoria, 'es') || a.nombre.localeCompare(b.nombre, 'es'))
 await guardar('lugares.json', lugares)
+
+// Edificios de gran altura (Catastro): los de PLANTAS_GRAN_ALTURA plantas sobre rasante o más (contando la baja), con
+// su dirección del Catastro (si da a varias calles, la de la calle más importante) y el nombre que le pone
+// OpenStreetMap si lo tiene. Cada edificio tiene partes de distinta altura: cuenta la más alta.
+const PLANTAS_GRAN_ALTURA = 12
+const carpetaCatastro = join(CRUDOS, 'catastro')
+const partesDeEdificios = await partesAltas(join(carpetaCatastro, 'A.ES.SDGC.BU.18900.buildingpart.gml'), PLANTAS_GRAN_ALTURA)
+const direccionesDeCatastro = await direccionesCatastro(join(carpetaCatastro, 'A.ES.SDGC.AD.18900.gml'))
+const nombresDeEdificios = await leer('osm-nombresEdificios.json').catch(() => ({ elements: [] }))
+const edificiosConNombre = nombresDeEdificios.elements
+  .filter((e) => e.center && e.tags?.name)
+  .map((e) => ({ nombre: e.tags.name, punto: [e.center.lon, e.center.lat] }))
+const porRefcat = new Map()
+for (const p of partesDeEdificios) {
+  const e = porRefcat.get(p.refcat) ?? { refcat: p.refcat, plantas: 0, anillo: null }
+  if (p.plantas > e.plantas) Object.assign(e, { plantas: p.plantas, anillo: p.anillo })
+  porRefcat.set(p.refcat, e)
+}
+// "CL PEDRO ANTONIO DE ALARCON" → la calle del callejero, cerca del edificio
+const viaDeCatastro = (texto, cerca) => {
+  const [tipo, ...resto] = texto.trim().split(/\s+/)
+  return viaPorNombre(`${TIPOS_CATASTRO[tipo] ?? tipo} ${resto.join(' ')}`, cerca) ?? viaPorNombre(resto.join(' '), cerca)
+}
+const altos = []
+for (const e of porRefcat.values()) {
+  const anillo = e.anillo.map(utmALonLat)
+  const punto = [0, 1].map((i) => anillo.reduce((s, p) => s + p[i], 0) / anillo.length)
+  const zona = zonaDe(punto)
+  if (!zona.distrito) continue
+  const metrosA = (via) => Math.min(...via.tramos.flatMap((t) => t.linea.slice(1).map((p, i) => distanciaASegmento(punto, t.linea[i], p))))
+  const todas = (direccionesDeCatastro.get(e.refcat) ?? [])
+    .filter((d) => d.via)
+    .map((d) => {
+      const via = viaDeCatastro(d.via, punto)
+      return via && { via, numero: /^\d/.test(d.numero) ? d.numero : 's/n', metros: metrosA(via) }
+    })
+    .filter(Boolean)
+  // Las calles a las que da (a menos de 200 m); si no hay ninguna, la más cercana de su dirección (los recintos
+  // grandes, como el hospital del Parque Tecnológico, están lejos de su calle)
+  const opciones = todas.filter((d) => d.metros < 200)
+  if (!opciones.length && todas.length) opciones.push(todas.reduce((a, b) => (b.metros < a.metros ? b : a)))
+  opciones.sort((a, b) => (importanciaDeVia.get(a.via.id) ?? 6) - (importanciaDeVia.get(b.via.id) ?? 6) || (a.numero === 's/n') - (b.numero === 's/n'))
+  const dir = opciones[0] ?? (() => {
+    const d = direccion({}, punto)
+    return d && { via: d.via, numero: d.numero }
+  })()
+  const conNombre = edificiosConNombre.find((x) => puntoEnAnillo(x.punto, anillo) || distancia(x.punto, punto) < 25)
+  altos.push({
+    id: `alto${e.refcat}`,
+    refcat: e.refcat,
+    plantas: e.plantas,
+    ...(conNombre && { nombre: conNombre.nombre }),
+    direccion: dir ? [dir.via.nombre, dir.numero].filter(Boolean).join(', ') : null,
+    via: dir?.via.id ?? null,
+    punto: redondear([punto])[0],
+    ...zona,
+    parque: ladoParques.parque(punto),
+    ...(ladoParques.aproximado(punto) && { parqueAproximado: true }),
+  })
+}
+altos.sort((a, b) => b.plantas - a.plantas || (a.direccion ?? '').localeCompare(b.direccion ?? '', 'es'))
+await guardar('altos.json', altos)
 
 // 6. Zona de los parques de bomberos de Granada (paso 2.5): sus 53 municipios, las carreteras con código
 // que pasan por ella, las salidas de autovía y cómo se llega a cada pueblo desde Granada (OpenStreetMap).
@@ -839,7 +1013,41 @@ const carreteras = carreterasOsm.elements
       geometry: { type: 'LineString', coordinates: redondear(simplificar(w.geometry.map((p) => [p.lon, p.lat]), 8)) },
     }
   })
+// Tipo de red de cada carretera (Red de Carreteras del Estado, Red Básica Estructurante... Provincial): el de las
+// rutas de OpenStreetMap, que siguen el catálogo de la Junta de Andalucía y de la Diputación
+const NOMBRE_RED = {
+  'Red de Carreteras del Estado': 'Red de Carreteras del Estado',
+  'ES:A-road': 'Red de Carreteras del Estado',
+  'Red Básica Estructurante': 'Red Básica Estructurante',
+  'Red Básica de Articulación': 'Red Básica de Articulación',
+  'Red Intercomarcal': 'Red Intercomarcal',
+  'Red Complementaria Metropolitana de Granada': 'Red Complementaria Metropolitana',
+  'Red Complementaria de Granada': 'Red Complementaria',
+  'Red Provincial de Granada': 'Red Provincial',
+}
+const tipoDeRed = new Map()
+for (const r of rutasOsm.elements) {
+  const tipo = NOMBRE_RED[r.tags?.network]
+  if (tipo && r.tags.ref && (!tipoDeRed.has(r.tags.ref) || tipo === 'Red de Carreteras del Estado')) tipoDeRed.set(r.tags.ref, tipo)
+}
+// Sin ruta en OpenStreetMap: las GR- de cuatro cifras son de la Diputación
+const redDeCarretera = (codigo) => tipoDeRed.get(codigo) ?? (/^GR-\d{4}$/.test(codigo) ? 'Red Provincial' : null)
+for (const f of carreteras) {
+  const tipo = f.properties.codigo.split(' / ').map(redDeCarretera).find(Boolean)
+  if (tipo) f.properties.tipoRed = tipo
+}
 await guardar('carreteras.json', coleccion(carreteras))
+// Lo mismo en un archivo pequeño para las preguntas ({ "A-92": "Red Básica Estructurante", ... }), solo con los
+// códigos de verdad (sin ramales como A-395R1 ni travesías antiguas como N-323A)
+await guardar(
+  'redes.json',
+  Object.fromEntries(
+    unicos(carreteras.flatMap((f) => f.properties.codigo.split(' / ')))
+      .filter((c) => /^(A|N|GR)-\d+G?$/.test(c) && redDeCarretera(c))
+      .sort((a, b) => a.localeCompare(b, 'es', { numeric: true }))
+      .map((c) => [c, redDeCarretera(c)]),
+  ),
+)
 
 // Carreteras que pasan por cada municipio: primero las autovías, luego nacionales, autonómicas y provinciales.
 // El tipo de cada código es el de la mayoría de sus tramos (la GR-3418 comparte unos metros con la N-432).
@@ -893,6 +1101,116 @@ await guardar(
     })),
   ),
 )
+
+// Polígonos industriales (scripts/lib/poligonos.mjs, del PDF de la persona): situados con OpenStreetMap. Se apunta
+// la carretera con código más cercana y, si el municipio de OpenStreetMap no es el del PDF, se dice en el informe.
+const osmPorId = new Map(poligonosOsm.elements.map((e) => [`${e.type[0]}${e.id}`, e]))
+const municipioEn = (p) => municipios.find((m) => m.zona.contiene(p))?.nombre ?? null
+const carreteraCercana = (p) => {
+  let mejor = null
+  for (const f of carreteras) {
+    const linea = f.geometry.coordinates
+    for (let i = 1; i < linea.length; i++) {
+      const d = distanciaASegmento(p, linea[i - 1], linea[i])
+      if (!mejor || d < mejor.metros) mejor = { codigo: f.properties.codigo.split(' / ')[0], metros: Math.round(d) }
+    }
+  }
+  return mejor && mejor.metros < 1500 ? mejor : null
+}
+const poligonos = POLIGONOS.map((p, i) => {
+  const e = p.osm ? osmPorId.get(p.osm) : null
+  const punto = e ? (e.center ? [e.center.lon, e.center.lat] : [e.lon, e.lat]) : (p.punto ?? null)
+  const enOsm = punto ? municipioEn(punto) : null
+  return {
+    id: `poligono${i + 1}`,
+    nombre: p.nombre,
+    municipio: p.municipio,
+    ...(p.nota && { nota: p.nota }),
+    ...(p.carretera && { carretera: p.carretera }),
+    ...(punto && { punto: redondear([punto])[0], cerca: carreteraCercana(punto) }),
+    ...(punto && !e && { aproximado: true }),
+    ...(e?.tags.name && e.tags.name !== p.nombre && { nombreOsm: e.tags.name }),
+    ...(enOsm && enOsm !== p.municipio && { municipioOsm: enOsm }),
+    ...(p.municipio === 'Granada' && punto && { ...zonaDe(punto), parque: ladoParques.parque(punto) }),
+    ...(p.dudoso && { dudoso: true }),
+    ...(p.fuente && { fuente: p.fuente }),
+  }
+})
+await guardar('poligonos.json', poligonos)
+
+// Informe del material de la persona (11-11-2026), para revisar si algo no cuadra
+const tabla = (cabecera, filas) => [`| ${cabecera.join(' | ')} |`, `| ${cabecera.map(() => '---').join(' | ')} |`, ...filas.map((f) => `| ${f.join(' | ')} |`)]
+const porParque = (lista) => contarValores(lista.map((x) => x.parque)).map(([p, n]) => `${p} ${n}`).join(', ')
+const lineasMaterial = [
+  '# Material de estudio: parques, polígonos, edificios y carreteras',
+  '',
+  'Generado por `npm run datos:procesar`. Sale de los PDF que la persona guardó en `material/` el 11-11-2026 (límites de los parques, polígonos industriales y edificios singulares), del Catastro (plantas de los edificios) y de OpenStreetMap (tipo de red de las carreteras). Si algo no coincide con el material oficial, manda el material oficial.',
+  '',
+  '## Parque Norte y Parque Sur',
+  '',
+  `Línea entre los dos parques: ${CALLES_LIMITE.map(([, n]) => n).join(', ')}. Al norte, Parque Norte; al sur, Parque Sur.`,
+  '',
+  `- Calles: ${porParque(calles)}. «límite» = calles de la propia línea; «los dos» = calles que la cruzan.`,
+  `- Lugares de interés: ${porParque(lugares)}.`,
+  `- ${calles.filter((c) => c.parqueAproximado).length} calles y ${lugares.filter((l) => l.parqueAproximado).length} lugares quedan más allá de las puntas de la línea (el Fargue, el final de Camino de Ronda...): su parque es aproximado y no sale en las preguntas. Falta saber qué parque atiende a cada pueblo de la zona.`,
+  '',
+  ...tabla(
+    ['Distrito', 'Calles del Parque Norte', 'Calles del Parque Sur', 'Límite o los dos'],
+    distritos.map((x) => x.nombre).sort((a, b) => a.localeCompare(b, 'es')).map((d) => {
+      const suyas = calles.filter((c) => c.distritos[0] === d)
+      return [d, suyas.filter((c) => c.parque === 'Norte').length, suyas.filter((c) => c.parque === 'Sur').length, suyas.filter((c) => !['Norte', 'Sur'].includes(c.parque)).length]
+    }),
+  ),
+  '',
+  '## Polígonos industriales',
+  '',
+  `${poligonos.length} polígonos; ${poligonos.filter((p) => p.punto && !p.aproximado).length} situados con su polígono de OpenStreetMap, ${poligonos.filter((p) => p.aproximado).length} en un punto aproximado y ${poligonos.filter((p) => !p.punto).length} sin situar.`,
+  '',
+  ...tabla(
+    ['Municipio', 'Polígono', 'Dónde está', 'Carretera (PDF)', 'Carretera más cercana'],
+    poligonos.map((p) => [
+      p.municipio + (p.municipioOsm ? ` (OpenStreetMap: ${p.municipioOsm})` : ''),
+      p.nombre + (p.nota ? ` (${p.nota})` : '') + (p.dudoso ? ' **¿errata?**' : ''),
+      !p.punto ? '**sin situar**' : p.aproximado ? 'aproximado' : `OpenStreetMap${p.nombreOsm ? `: ${p.nombreOsm}` : ''}`,
+      p.carretera ?? '',
+      p.cerca ? `${p.cerca.codigo} (${p.cerca.metros} m)` : '',
+    ]),
+  ),
+  '',
+  '## Edificios singulares',
+  '',
+  ...tabla(
+    ['Edificio', 'Calle (PDF)', 'Calle en el callejero', 'Situado en'],
+    informeSingulares.map((e) => [e.nombre, [e.calle, e.numero].filter(Boolean).join(', '), e.via ?? '**no encontrada**', e.situado]),
+  ),
+  '',
+  '## Edificios de gran altura',
+  '',
+  `${altos.length} edificios de ${PLANTAS_GRAN_ALTURA} plantas o más sobre rasante, según el Catastro (contando la planta baja); ${altos.filter((a) => a.nombre).length} con nombre en OpenStreetMap.`,
+  '',
+  ...tabla(
+    ['Plantas', 'Dirección', 'Nombre', 'Distrito', 'Parque'],
+    altos.map((a) => [a.plantas, a.direccion ?? '', a.nombre ?? '', a.distrito, a.parque]),
+  ),
+  '',
+  '## Tipo de red de las carreteras',
+  '',
+  ...tabla(
+    ['Red', 'Carreteras de la zona'],
+    contarValores(carreteras.map((c) => c.properties.tipoRed ?? 'sin dato')).map(([red]) => [
+      red,
+      unicos(carreteras.filter((c) => (c.properties.tipoRed ?? 'sin dato') === red).map((c) => c.properties.codigo)).sort((a, b) => a.localeCompare(b, 'es', { numeric: true })).join(', '),
+    ]),
+  ),
+  '',
+  '## Incorporaciones',
+  '',
+  `${calles.filter((c) => c.incorporaciones).length} calles con «¿cómo me incorporo a la calle de su final?» calculado con la red de los trayectos (girando a la derecha, a la izquierda o a los dos lados).`,
+  '',
+  'Fuentes: material de la persona · Catastro (Dirección General del Catastro, CC BY 4.0) · © colaboradores de OpenStreetMap (ODbL) · CDAU (Junta de Andalucía, CC BY 4.0).',
+  '',
+]
+await writeFile(join(RAIZ, 'datos', 'informe-material.md'), lineasMaterial.join('\n'))
 
 // Informe para revisar la zona con el material oficial: salidas de cada autovía y cómo se llega a cada pueblo
 const lineasZona = [

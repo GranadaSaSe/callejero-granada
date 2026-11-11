@@ -1,6 +1,6 @@
 # Informe de datos
 
-Generado el 2026-11-11 con los datos descargados entre el 2026-10-27 y el 2026-10-29. Se vuelve a crear con `npm run datos:procesar`.
+Generado el 2026-11-11 con los datos descargados entre el 2026-10-27 y el 2026-11-11. Se vuelve a crear con `npm run datos:procesar`.
 
 ## Distritos y barrios
 
@@ -60,17 +60,18 @@ Códigos de circulación del CDAU, deducidos comparando cada tramo con OpenStree
 
 ## Lugares de interés
 
-903 lugares (OpenStreetMap y las plazas de la revisión); 806 con dirección.
+930 lugares (OpenStreetMap y las plazas de la revisión); 837 con dirección.
 
 | Tipo | Lugares | Con dirección |
 | --- | --- | --- |
-| Monumentos | 199 | 163 |
+| Monumentos | 186 | 153 |
 | Colegios e institutos | 114 | 112 |
 | Parques y jardines | 88 | 76 |
-| Iglesias y templos | 78 | 76 |
-| Cultura | 72 | 67 |
+| Iglesias y templos | 74 | 73 |
+| Cultura | 59 | 54 |
+| Edificios singulares | 58 | 58 |
 | Centros de salud | 49 | 49 |
-| Edificios oficiales | 45 | 45 |
+| Edificios oficiales | 44 | 44 |
 | Estatuas y esculturas | 41 | 40 |
 | Instalaciones deportivas | 40 | 37 |
 | Universidad y formación | 36 | 34 |

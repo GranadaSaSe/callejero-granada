@@ -11,8 +11,49 @@ export const MODOS_ZONA = [
   { id: 'coger', nombre: 'Salidas: cuál coger' },
   { id: 'acceso', nombre: 'Cómo se llega a cada pueblo' },
   { id: 'carretera', nombre: 'Qué carretera es' },
+  { id: 'une', nombre: 'Qué carretera une dos pueblos' },
+  { id: 'red', nombre: 'Tipo de red de cada carretera' },
+  { id: 'poligono', nombre: 'Polígonos industriales' },
   { id: 'mezcla', nombre: 'Todo mezclado' },
 ]
+
+// Tipos de red de las carreteras (catálogo de la Junta de Andalucía, del Estado y de la Diputación)
+export const TIPOS_RED = [
+  'Red de Carreteras del Estado',
+  'Red Básica Estructurante',
+  'Red Básica de Articulación',
+  'Red Intercomarcal',
+  'Red Complementaria',
+  'Red Complementaria Metropolitana',
+  'Red Provincial',
+]
+
+// Polígonos de los que se puede preguntar: sin los que parecen erratas, sin nombres repetidos en dos pueblos (hay un
+// «La Estación» en Atarfe y otro en Pinos Puente) y sin los que llevan el pueblo en el nombre (se responden solos)
+const sinTildes = (texto) => texto.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+export function poligonosPreguntables(poligonos = []) {
+  const veces = new Map()
+  for (const p of poligonos) veces.set(p.nombre, (veces.get(p.nombre) ?? 0) + 1)
+  return poligonos.filter((p) => !p.dudoso && veces.get(p.nombre) === 1 && !sinTildes(p.nombre).includes(sinTildes(p.municipio)))
+}
+
+// Pueblos vecinos unidos por una sola carretera con código (la que pasa por los dos términos): «¿qué carretera une
+// A y B?». Sin las autovías, que pasan por muchos pueblos sin unirlos de verdad.
+export function parejasUnidas(municipios, redes = {}) {
+  const porNombre = new Map(municipios.features.map((f) => [f.properties.nombre, f]))
+  const valida = (c) => redes[c] && !/^(A-44|A-92|A-92G|GR-30|GR-43)$/.test(c)
+  const parejas = []
+  for (const f of municipios.features) {
+    const a = f.properties
+    for (const nombre of a.vecinos) {
+      const b = porNombre.get(nombre)?.properties
+      if (!b || a.nombre >= b.nombre || a.nombre === 'Granada' || b.nombre === 'Granada') continue
+      const comunes = a.carreteras.filter((c) => b.carreteras.includes(c) && valida(c))
+      if (comunes.length === 1) parejas.push({ a: a.nombre, b: b.nombre, codigo: comunes[0] })
+    }
+  }
+  return parejas
+}
 export const PARTES_ZONA = ['Toda la zona', 'Capital', 'Norte', 'Este', 'Sur', 'Oeste', 'Valle de Lecrín']
 
 // Paso aproximado de grados a metros, suficiente en la provincia (igual que en scripts/lib/geo.mjs)
@@ -64,7 +105,7 @@ export function municipioEn(municipios, punto) {
 
 // Todas las preguntas posibles con estos ajustes (sin las respuestas falsas, que cambian cada vez).
 // Cada una lleva un id fijo para recordar si se falló.
-export function preguntasZona({ municipios, salidas, carreteras }, { modo, parte }) {
+export function preguntasZona({ municipios, salidas, carreteras, poligonos = [], redes = {} }, { modo, parte }) {
   const parteDe = new Map(municipios.features.map((f) => [f.properties.nombre, f.properties.parte]))
   const enParte = (nombre) => parte === 'Toda la zona' || parteDe.get(nombre) === parte
   const quiero = (tipo) => modo === tipo || modo === 'mezcla'
@@ -100,12 +141,32 @@ export function preguntasZona({ municipios, salidas, carreteras }, { modo, parte
       if (m >= CARRETERA_MINIMA_M && enLaParte.has(codigo)) lista.push({ id: `carretera:${codigo}`, tipo: 'carretera', codigo })
     }
   }
+
+  // Material de la persona (paso 3.5): qué carretera une dos pueblos, de qué red es cada carretera y en qué
+  // pueblo está cada polígono industrial (se toca su término, como en «¿dónde está?»)
+  if (quiero('une')) {
+    for (const x of parejasUnidas(municipios, redes)) {
+      if (enParte(x.a) || enParte(x.b)) lista.push({ id: `une:${x.a}|${x.b}`, tipo: 'une', ...x })
+    }
+  }
+  if (quiero('red')) {
+    const enLaParte = new Set(municipios.features.filter((f) => enParte(f.properties.nombre)).flatMap((f) => f.properties.carreteras))
+    for (const codigo of Object.keys(redes)) if (enLaParte.has(codigo)) lista.push({ id: `red:${codigo}`, tipo: 'red', codigo })
+  }
+  if (quiero('poligono')) {
+    const porNombre = new Map(municipios.features.map((f) => [f.properties.nombre, f]))
+    for (const p of poligonosPreguntables(poligonos)) {
+      if (enParte(p.municipio) && porNombre.has(p.municipio)) {
+        lista.push({ id: `poligono:${p.nombre}`, tipo: 'poligono', poligono: p, municipio: porNombre.get(p.municipio) })
+      }
+    }
+  }
   return lista
 }
 
 // Prepara una pregunta para jugarla: el enunciado, cómo se contesta ('tocar' en el mapa o 'elegir' entre 4),
 // las opciones ({ texto, buena }) y el texto de la respuesta buena
-export function prepararPregunta(p, { municipios, salidas }, azar = Math.random) {
+export function prepararPregunta(p, { municipios, salidas, redes = {} }, azar = Math.random) {
   const porNombre = new Map(municipios.features.map((f) => [f.properties.nombre, f]))
   // Municipios más cercanos a uno (sin él ni Granada), primero sus vecinos
   const cercanos = (f) => {
@@ -121,6 +182,33 @@ export function prepararPregunta(p, { municipios, salidas }, azar = Math.random)
   if (p.tipo === 'donde') {
     const m = p.municipio.properties
     return { enunciado: `¿Dónde está ${m.nombre}?`, contestar: 'tocar', respuesta: m.nombre }
+  }
+  if (p.tipo === 'poligono') {
+    return { enunciado: `¿En qué pueblo está el ${p.poligono.nombre}? Toca su término.`, contestar: 'tocar', respuesta: p.municipio.properties.nombre }
+  }
+  if (p.tipo === 'red') {
+    const buena = redes[p.codigo]
+    return {
+      enunciado: `La carretera ${p.codigo} (en azul), ¿de qué red es?`,
+      contestar: 'elegir',
+      respuesta: buena,
+      opciones: opciones(buena, falsas(buena, barajar(TIPOS_RED, azar))),
+    }
+  }
+  if (p.tipo === 'une') {
+    // Las falsas: otras carreteras de los dos pueblos y de sus vecinos
+    const a = porNombre.get(p.a)
+    const b = porNombre.get(p.b)
+    const deAlrededor = [a, b, ...[...a.properties.vecinos, ...b.properties.vecinos].map((n) => porNombre.get(n))]
+      .filter(Boolean)
+      .flatMap((f) => f.properties.carreteras)
+      .filter((c) => redes[c] && !(a.properties.carreteras.includes(c) && b.properties.carreteras.includes(c)))
+    return {
+      enunciado: `¿Qué carretera une ${p.a} y ${p.b}?`,
+      contestar: 'elegir',
+      respuesta: p.codigo,
+      opciones: opciones(p.codigo, falsas(p.codigo, barajar([...new Set(deAlrededor)], azar))),
+    }
   }
   if (p.tipo === 'pueblo') {
     const m = p.municipio.properties
@@ -188,7 +276,7 @@ export function prepararPregunta(p, { municipios, salidas }, azar = Math.random)
 // Tarjetas de repaso de la zona (mazo «carreteras»): cómo se llega a cada pueblo, a dónde lleva cada salida
 // y qué salida coger para cada destino, intercaladas. Cada una guarda en "datos.falsas" las respuestas
 // falsas más parecidas (las de los pueblos o salidas de alrededor), para el modo test y el examen.
-export function tarjetasZona({ municipios, salidas }) {
+export function tarjetasZona({ municipios, salidas, poligonos = [], redes = {} }) {
   const porNombre = new Map(municipios.features.map((f) => [f.properties.nombre, f]))
   const masCerca = (f) =>
     municipios.features
@@ -249,8 +337,63 @@ export function tarjetasZona({ municipios, salidas }) {
       cercanas(p.salida, (o) => !o.destinos.includes(p.destino)).map((o) => `Salida ${o.numero}`),
     ),
   )
-  // Intercaladas, para que las tarjetas nuevas de cada día sean de las tres clases
+  // Material de la persona (paso 3.5): qué carretera une dos pueblos, de qué red es cada carretera y dónde está
+  // (y por dónde se llega a) cada polígono industrial
+  const une = parejasUnidas(municipios, redes).map((x) => {
+    const deAlrededor = [x.a, x.b]
+      .map((n) => porNombre.get(n))
+      .flatMap((f) => [f, ...f.properties.vecinos.map((v) => porNombre.get(v))])
+      .filter(Boolean)
+      .flatMap((f) => f.properties.carreteras)
+      .filter((c) => redes[c] && c !== x.codigo)
+    return tarjeta(
+      `une:${x.a}|${x.b}`,
+      `#/mapa?carretera=${encodeURIComponent(x.codigo)}`,
+      `¿Qué carretera une ${x.a} y ${x.b}?`,
+      x.codigo,
+      `${x.codigo} pasa por los términos de los dos pueblos (${redes[x.codigo]}).`,
+      deAlrededor,
+    )
+  })
+  const red = Object.entries(redes).map(([codigo, tipo]) =>
+    tarjeta(
+      `red:${codigo}`,
+      `#/mapa?carretera=${encodeURIComponent(codigo)}`,
+      `¿De qué red es la carretera ${codigo}?`,
+      tipo,
+      null,
+      TIPOS_RED,
+    ),
+  )
+  const preguntables = poligonosPreguntables(poligonos)
+  const enPueblo = preguntables
+    .filter((p) => porNombre.has(p.municipio))
+    .map((p) =>
+      tarjeta(
+        `poligono:${p.nombre}`,
+        p.punto ? `#/mapa?lugar=${p.id}` : enlacePueblo(p.municipio),
+        `¿En qué pueblo está el ${p.nombre}?`,
+        p.municipio,
+        [p.nota, p.carretera && `Se llega por la ${p.carretera}.`].filter(Boolean).join('. ') || null,
+        masCerca(porNombre.get(p.municipio)).map((o) => o.properties.nombre),
+      ),
+    )
+  const porCarretera = preguntables
+    .filter((p) => p.carretera)
+    .map((p) => {
+      const f = porNombre.get(p.municipio)
+      return tarjeta(
+        `poligono-carretera:${p.nombre}`,
+        p.punto ? `#/mapa?lugar=${p.id}` : enlacePueblo(p.municipio),
+        `¿Por qué carretera se llega al ${p.nombre} (${p.municipio})?`,
+        p.carretera,
+        p.nota ?? null,
+        [f, ...(f ? masCerca(f).slice(0, 4) : [])].filter(Boolean).flatMap((o) => o.properties.carreteras).filter((c) => redes[c]),
+      )
+    })
+  // Intercaladas, para que las tarjetas nuevas de cada día sean de todas las clases
+  const clases = [accesos, aDonde, coger, enPueblo, une, red, porCarretera]
   const todas = []
-  for (let i = 0; i < Math.max(accesos.length, aDonde.length, coger.length); i++) todas.push(accesos[i], aDonde[i], coger[i])
+  for (let i = 0; i < Math.max(...clases.map((c) => c.length)); i++) for (const c of clases) todas.push(c[i])
   return todas.filter(Boolean)
 }

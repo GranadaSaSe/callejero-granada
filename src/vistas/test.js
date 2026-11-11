@@ -1,14 +1,18 @@
-// Test tipo examen (paso 1.7): preguntas a, b, c, d por temas, con penalización por fallo y nota sobre
+// Test tipo examen (paso 1.7): preguntas a, b, c por temas (tres respuestas, como en el examen de 2025), con penalización por fallo y nota sobre
 // 10, como en la oposición. Se puede dejar en blanco, marcar dudosas y volver atrás. Al entregar se ve la
 // corrección de cada pregunta con su explicación y un enlace al mapa.
 // Simulacro de examen (paso 3.6): 55 preguntas de todos los temas (50 que cuentan y 5 de reserva al final),
-// 60 minutos y penalización de 1/3 o 1/2. Análisis de dudosas (paso 3.7): al entregar, la nota con y sin las
+// 50 minutos y penalización de 1/3 o 1/2. Análisis de dudosas (paso 3.7): al entregar, la nota con y sin las
 // dudosas contestadas; en la portada, cuántas de las dudosas que contestas aciertas y si te compensa.
+// Banco de exámenes reales (paso 3.5): las preguntas de callejero y carreteras de 2020, 2022 y 2025
+// (src/examenes-reales.js), con la misma corrección.
 import { apuntar } from '../actividad.js'
 import { crear, rellenar } from '../crear.js'
 import { cargar } from '../datos.js'
 import { DISTRITOS, ejesActuales } from '../ejes-lista.js'
 import { corregir, crearExamen, NIVELES, TEMAS } from '../examen-datos.js'
+import { EXAMENES_REALES, preguntasReales } from '../examenes-reales.js'
+import { clavesNombre } from '../../scripts/lib/nombres.mjs'
 import { prepararTrayectos } from '../trayectos-datos.js'
 import { buscadorDeReferencias, notaAbierta, notaDePregunta } from '../nota-pregunta.js'
 import { calificar } from '../repaso.js'
@@ -28,11 +32,11 @@ const TEXTO_PENALIZACION = new Map([
   [1 / 3, '1/3'],
   [1 / 2, '1/2'],
 ])
-const LETRAS = ['a', 'b', 'c', 'd']
+const LETRAS = ['a', 'b', 'c', 'd'] // el examen tiene tres (a, b, c); la d solo por si acaso
 const NOMBRE_TEMA = Object.fromEntries(TEMAS.map((t) => [t.id, t.nombre]))
-const SEGUNDOS_POR_PREGUNTA = 72 // 60 minutos para 50 preguntas
-const SIMULACRO = { cuentan: 50, reserva: 5, segundos: 60 * 60 }
-// Con cuatro opciones y una penalización p, contestar al azar compensa si se acierta más de p / (1 + p)
+const SEGUNDOS_POR_PREGUNTA = 60 // 50 minutos para 50 preguntas, como en el examen de 2025
+const SIMULACRO = { cuentan: 50, reserva: 5, segundos: 50 * 60 }
+// Con una penalización p, contestar una dudosa compensa si se acierta más de p / (1 + p) de las veces
 const UMBRAL_DUDOSAS = (p) => p / (1 + p)
 const porcentaje = (x) => `${Math.round(x * 100)} %`
 
@@ -59,8 +63,11 @@ const fecha = (iso) => new Date(iso).toLocaleString('es-ES', { dateStyle: 'short
 export async function abrir(contenedor) {
   const pagina = crear('div', { class: 'pagina' }, crear('p', { class: 'cargando-texto' }, 'Preparando el test…'))
   contenedor.append(pagina)
-  const [calles, lugares, municipios, salidas] = await Promise.all(['calles', 'lugares', 'municipios', 'salidas'].map(cargar))
-  const zona = { municipios, salidas } // zona de los parques de Granada (paso 2.5)
+  const [calles, lugares, municipios, salidas, poligonos, redes, altos] = await Promise.all(
+    ['calles', 'lugares', 'municipios', 'salidas', 'poligonos', 'redes', 'altos'].map(cargar),
+  )
+  // Zona de los parques de Granada (paso 2.5), con sus polígonos y el tipo de red de cada carretera (paso 3.5)
+  const zona = { municipios, salidas, poligonos, redes }
   const ajustes = {
     temas: TEMAS.map((t) => t.id),
     nivel: 'medio',
@@ -81,6 +88,19 @@ export async function abrir(contenedor) {
   let temporizador = null
   const subir = () => contenedor.closest('.vistas')?.scrollTo(0, 0)
   const referenciaDe = buscadorDeReferencias(calles, lugares)
+
+  // Enlace al mapa de lo que nombra una pregunta de examen real: una calle, un lugar, un polígono, un pueblo o una
+  // carretera (se busca por su nombre)
+  const porClave = new Map()
+  const anadirClave = (nombre, enlace) => {
+    for (const k of clavesNombre(nombre)) if (!porClave.has(k)) porClave.set(k, enlace)
+  }
+  for (const c of calles) anadirClave(c.nombre, `#/mapa?calle=${c.id}`)
+  for (const l of lugares) anadirClave(l.nombre, `#/mapa?lugar=${l.id}`)
+  for (const p of poligonos.filter((x) => x.punto)) anadirClave(p.nombre, `#/mapa?lugar=${p.id}`)
+  for (const f of municipios.features) anadirClave(f.properties.nombre, `#/mapa?pueblo=${encodeURIComponent(f.properties.nombre)}`)
+  const enlaceDe = (nombre) =>
+    /^(A|N|GR)-\d/.test(nombre) ? `#/mapa?carretera=${encodeURIComponent(nombre)}` : (porClave.get(clavesNombre(nombre)[0]) ?? null)
 
   // Botón "✎ Nota" de cada pregunta: sugerencias o quejas que van a Inicio → Notas
   const botonNota = (p, elegida, pausa, modo = 'Test tipo examen') =>
@@ -165,11 +185,36 @@ export async function abrir(contenedor) {
           'Las de reserva no cuentan para la nota: en el examen solo sustituyen a las preguntas que se anulen. Se contestan igual.',
         ),
       ),
+      // Banco de exámenes reales (paso 3.5)
+      crear(
+        'section',
+        { class: 'tarjeta' },
+        crear('h2', {}, 'Exámenes de otros años'),
+        crear(
+          'p',
+          {},
+          'Las preguntas de callejero y carreteras de los exámenes reales (sin las de vehículos y mecánica), con su corrección. ' +
+            'En 2022 no hay plantilla: las respuestas están calculadas con los datos de la app.',
+        ),
+        crear(
+          'div',
+          { class: 'acciones-eje' },
+          EXAMENES_REALES.map((e) =>
+            crear('button', { class: 'boton secundario', onclick: () => empezarReal([e.anio]) }, `${e.anio} (${e.preguntas.length})`),
+          ),
+          crear(
+            'button',
+            { class: 'boton secundario', onclick: () => empezarReal(EXAMENES_REALES.map((e) => e.anio)) },
+            `Todos mezclados (${EXAMENES_REALES.reduce((s, e) => s + e.preguntas.length, 0)})`,
+          ),
+        ),
+        crear('p', { class: 'ficha-nota' }, 'Se corrige con la penalización y el tiempo que elijas abajo, en «Test a tu medida».'),
+      ),
       crear('h2', {}, 'Test a tu medida'),
       crear(
         'p',
         { class: 'intro' },
-        'Preguntas con cuatro respuestas (a, b, c, d) y una sola buena. Puedes dejar preguntas en blanco, ' +
+        'Preguntas con tres respuestas (a, b, c) y una sola buena, como en el examen. Puedes dejar preguntas en blanco, ' +
           'marcarlas como dudosas y volver atrás antes de entregar. La nota se calcula como en el examen.',
       ),
       crear(
@@ -207,14 +252,14 @@ export async function abrir(contenedor) {
           'label',
           { class: 'casilla' },
           crear('input', { type: 'checkbox', checked: ajustes.conTiempo, onchange: (e) => cambiarAjuste({ conTiempo: e.target.checked }) }),
-          'Con tiempo, como en el examen (60 minutos para 50 preguntas)',
+          'Con tiempo, como en el examen (50 minutos para 50 preguntas)',
         ),
         crear('button', { class: 'boton grande', disabled: !ajustes.temas.length, onclick: empezar }, 'Empezar el test'),
         crear(
           'p',
           { class: 'ficha-nota' },
-          'Truco: con cuatro opciones y fallos que restan 1/3, contestar totalmente al azar no gana ni pierde de media; ' +
-            'si puedes descartar una opción, ya compensa contestar. Con 1/2, hay que descartar dos.',
+          'Truco: con tres opciones y fallos que restan 1/2, contestar totalmente al azar no gana ni pierde de media; ' +
+            'si puedes descartar una opción, ya compensa contestar. Con 1/3, contestar al azar ya gana un poco de media.',
         ),
       ),
       conDudosas.length > 0 &&
@@ -254,7 +299,7 @@ export async function abrir(contenedor) {
             crear(
               'li',
               {},
-              crear('strong', {}, `${h.simulacro ? 'Simulacro · ' : ''}Nota ${nota(h.nota)}`),
+              crear('strong', {}, `${h.simulacro ? 'Simulacro · ' : h.real ? `Examen de ${h.real.join(', ')} · ` : ''}Nota ${nota(h.nota)}`),
               crear('p', {}, `${h.aciertos} bien · ${h.fallos} mal · ${h.enBlanco} en blanco · ${h.total} preguntas`),
               crear('small', {}, `${fecha(h.fecha)} · fallos restan ${TEXTO_PENALIZACION.get(h.penalizacion) ?? h.penalizacion}`),
             ),
@@ -268,7 +313,7 @@ export async function abrir(contenedor) {
   // La red de calles para los trayectos (paso 3.3) se carga solo si el tema está marcado
   let trayectos = null
   async function datosDelExamen(temas, boton) {
-    const datos = { calles, lugares, ejes: ejesActuales(calles), zona }
+    const datos = { calles, lugares, ejes: ejesActuales(calles), zona, altos }
     if (!temas.includes('trayectos')) return datos
     if (boton) {
       boton.disabled = true
@@ -286,6 +331,13 @@ export async function abrir(contenedor) {
     if (preguntas.length) examen(preguntas)
   }
 
+  // Exámenes reales (paso 3.5): sus preguntas en orden si es un año; mezcladas si son varios
+  function empezarReal(anios) {
+    let preguntas = preguntasReales(anios, enlaceDe)
+    if (anios.length > 1) preguntas = preguntas.map((p) => [Math.random(), p]).sort((a, b) => a[0] - b[0]).map(([, p]) => p)
+    if (preguntas.length) examen(preguntas, { real: anios })
+  }
+
   // Simulacro (paso 3.6): todos los temas y toda Granada; las 5 últimas son de reserva
   async function empezarSimulacro(e) {
     const temas = TEMAS.map((t) => t.id)
@@ -295,7 +347,7 @@ export async function abrir(contenedor) {
     if (preguntas.length) examen(preguntas, { simulacro: true })
   }
 
-  function examen(preguntas, { simulacro = false } = {}) {
+  function examen(preguntas, { simulacro = false, real = null } = {}) {
     pantalla = 'examen'
     const total = preguntas.length
     const respuestas = new Array(total).fill(null)
@@ -331,7 +383,7 @@ export async function abrir(contenedor) {
           'article',
           { class: 'tarjeta-repaso' },
           botonNota(p, respuestas[actual], reloj),
-          crear('p', { class: 'etiqueta' }, `Pregunta ${actual + 1} de ${total} · ${esReserva(actual) ? 'De reserva · ' : ''}${NOMBRE_TEMA[p.tema]}`),
+          crear('p', { class: 'etiqueta' }, `Pregunta ${actual + 1} de ${total} · ${esReserva(actual) ? 'De reserva · ' : ''}${p.origen ?? NOMBRE_TEMA[p.tema]}`),
           esReserva(actual) && crear('p', { class: 'ficha-nota' }, 'Pregunta de reserva: no cuenta para la nota salvo que anulen alguna de las 50.'),
           crear('h2', { class: 'pregunta-tarjeta' }, p.pregunta),
           crear(
@@ -403,7 +455,7 @@ export async function abrir(contenedor) {
       if (!seAcaboElTiempo && enBlanco && !confirm(`Te quedan ${enBlanco} sin contestar. ¿Entregar ya?`)) return
       clearInterval(temporizador)
       teclas = null
-      resultado(preguntas, respuestas, dudosas, seAcaboElTiempo, simulacro)
+      resultado(preguntas, respuestas, dudosas, seAcaboElTiempo, simulacro, real)
     }
 
     if (limite) {
@@ -413,10 +465,11 @@ export async function abrir(contenedor) {
         if (quedan() <= 0) entregar(true)
       }, 1000)
     }
-    // Teclado: a-d o 1-4 para elegir, flechas para moverse
+    // Teclado: a-c o 1-3 para elegir, flechas para moverse
     teclas = (e) => {
-      const i = 'abcd'.indexOf(e.key.toLowerCase()) >= 0 ? 'abcd'.indexOf(e.key.toLowerCase()) : '1234'.indexOf(e.key)
-      if (i >= 0) elegir(i)
+      const letra = 'abcd'.indexOf(e.key.toLowerCase())
+      const i = letra >= 0 ? letra : '1234'.indexOf(e.key)
+      if (i >= 0 && i < preguntas[actual].opciones.length) elegir(i)
       else if (e.key === 'ArrowRight') ir(actual + 1)
       else if (e.key === 'ArrowLeft') ir(actual - 1)
     }
@@ -424,7 +477,7 @@ export async function abrir(contenedor) {
     subir()
   }
 
-  function resultado(preguntas, respuestas, dudosas, seAcaboElTiempo, simulacro = false) {
+  function resultado(preguntas, respuestas, dudosas, seAcaboElTiempo, simulacro = false, real = null) {
     pantalla = 'resultado'
     const penalizacion = simulacro ? ajustes.penalizacionSimulacro : ajustes.penalizacion
     // En el simulacro, la nota sale de las 50 primeras; las de reserva se corrigen aparte
@@ -457,6 +510,7 @@ export async function abrir(contenedor) {
         nota: puntuacion,
         penalizacion,
         ...(simulacro && { simulacro: true }),
+        ...(real && { real }),
         dudosas: { marcadas: dudosas.size, contestadas: contestadasDudosas.length, bien: dudosasBien, aporte },
       },
       ...leer(CLAVES.historial, []),
@@ -475,7 +529,7 @@ export async function abrir(contenedor) {
             'li',
             { class: `correccion correccion-${estado(i)}` },
             botonNota(p, respuestas[i], undefined, 'Corrección del test tipo examen'),
-            crear('p', { class: 'etiqueta' }, `${i + 1}. ${marca}${dudosas.has(i) ? ' · dudosa' : ''} · ${NOMBRE_TEMA[p.tema]}`),
+            crear('p', { class: 'etiqueta' }, `${i + 1}. ${marca}${dudosas.has(i) ? ' · dudosa' : ''} · ${p.origen ?? NOMBRE_TEMA[p.tema]}`),
             crear('strong', {}, p.pregunta),
             crear(
               'ul',
@@ -490,7 +544,7 @@ export async function abrir(contenedor) {
               ),
             ),
             crear('p', { class: 'detalle-tarjeta' }, p.explicacion),
-            crear('a', { class: 'enlace-discreto', href: p.enlace }, p.enlace.startsWith('#/ejes') ? 'Ver el eje' : 'Ver en el mapa'),
+            p.enlace && crear('a', { class: 'enlace-discreto', href: p.enlace }, p.enlace.startsWith('#/ejes') ? 'Ver el eje' : 'Ver en el mapa'),
           )
         }),
       )
@@ -568,7 +622,11 @@ export async function abrir(contenedor) {
         { class: 'acciones-eje' },
         fallosYBlancos.length > 0 &&
           crear('button', { class: 'boton', onclick: () => examen(fallosYBlancos) }, `Repetir las ${fallosYBlancos.length} no acertadas`),
-        crear('button', { class: 'boton secundario', onclick: simulacro ? empezarSimulacro : empezar }, simulacro ? 'Otro simulacro' : 'Nuevo test'),
+        crear(
+          'button',
+          { class: 'boton secundario', onclick: real ? () => empezarReal(real) : simulacro ? empezarSimulacro : empezar },
+          real ? 'Repetir el examen' : simulacro ? 'Otro simulacro' : 'Nuevo test',
+        ),
         crear('button', { class: 'boton secundario', onclick: portada }, 'Volver'),
       ),
       crear('h2', {}, 'Corrección'),

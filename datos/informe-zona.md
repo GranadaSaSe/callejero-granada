@@ -1,6 +1,6 @@
 # Zona de los parques de Granada: pueblos, salidas y accesos
 
-Generado por `npm run datos:procesar` con los datos de OpenStreetMap descargados entre el 2026-10-27 y el 2026-10-29. Qué municipios entran sale del plano de carreteras de la provincia (diciembre de 2013) guardado en `material/`; las salidas y los accesos, de OpenStreetMap. Si algo no coincide con el material oficial, manda el material oficial.
+Generado por `npm run datos:procesar` con los datos de OpenStreetMap descargados entre el 2026-10-27 y el 2026-11-11. Qué municipios entran sale del plano de carreteras de la provincia (diciembre de 2013) guardado en `material/`; las salidas y los accesos, de OpenStreetMap. Si algo no coincide con el material oficial, manda el material oficial.
 
 ## Municipios
 

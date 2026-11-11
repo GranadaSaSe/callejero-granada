@@ -1,7 +1,8 @@
 // "Zona de los parques" (paso 2.5): pueblos, salidas de autovía y carreteras de la zona de los parques de
 // Granada en el mapa sin nombres. Seis tipos de pregunta (o todos mezclados): dónde está un pueblo (se toca),
 // qué pueblo es, a dónde lleva una salida, qué salida coger, cómo se llega a un pueblo y qué carretera es (se
-// elige entre cuatro). Las preguntas salen de src/zona-preguntas.js.
+// elige entre cuatro). Las preguntas salen de src/zona-preguntas.js. Con el material de la persona (paso 3.5), además:
+// qué carretera une dos pueblos, de qué red es cada carretera y en qué pueblo está cada polígono industrial.
 import { textoAcceso } from '../../scripts/lib/zona-datos.mjs'
 import { apuntar } from '../actividad.js'
 import { crear, miles, rellenar } from '../crear.js'
@@ -19,6 +20,9 @@ const TIPO = {
   salida: 'Salidas de autovía',
   coger: 'Salidas de autovía',
   carretera: 'Carreteras',
+  une: 'Carreteras · qué carretera une dos pueblos',
+  red: 'Carreteras · tipo de red',
+  poligono: 'Polígonos industriales',
 }
 // items: { id: { bien, total, fallo } } (fallo = si la última vez se falló); récord por tipo de pregunta y parte
 const estado = leerEstado(CLAVE, { ajustes: { modo: 'mezcla', parte: 'Toda la zona' }, records: {}, items: {}, partidas: 0 })
@@ -80,7 +84,7 @@ export const juegoZona = {
 
 async function partida(ctx, lista) {
   const { arriba, abajo } = ctx
-  const { municipios, carreteras, salidas } = ctx.datos
+  const { municipios, carreteras, salidas, redes = {} } = ctx.datos
   const porNombre = new Map(municipios.features.map((f) => [f.properties.nombre, f]))
   const preguntas = elegir(lista, PREGUNTAS_POR_PARTIDA, (p) => estado.items[p.id]?.fallo)
   const resultados = []
@@ -147,7 +151,7 @@ async function partida(ctx, lista) {
 
   // Lo que se marca antes de contestar y dónde se encuadra el mapa
   function plantear() {
-    if (p.tipo === 'donde') {
+    if (p.tipo === 'donde' || p.tipo === 'poligono') {
       const parte = estado.ajustes.parte
       const dePartes = municipios.features.filter((f) => parte === 'Toda la zona' || f.properties.parte === parte)
       dibujar([])
@@ -162,6 +166,10 @@ async function partida(ctx, lista) {
     } else if (p.tipo === 'coger') {
       dibujar(figurasCarretera(p.salida.carretera, AZUL))
       ctx.encuadrar(salidas.filter((s) => s.carretera === p.salida.carretera).map((s) => s.punto), { maxZoom: 12 })
+    } else if (p.tipo === 'une') {
+      const dos = [porNombre.get(p.a), porNombre.get(p.b)]
+      dibujar(dos.flatMap((m) => figurasMunicipio(m, AZUL)))
+      ctx.encuadrar(dos.flatMap(puntosMunicipio), { maxZoom: 13 })
     } else {
       dibujar(figurasCarretera(p.codigo, AZUL))
       ctx.encuadrar(puntosCarretera(p.codigo), { maxZoom: 13 })
@@ -218,6 +226,18 @@ async function partida(ctx, lista) {
       const equivocado = p.tipo === 'donde' ? tocado?.municipio : porNombre.get(dicho)
       if (!acierto && equivocado) conMunicipio(equivocado, ROJO)
       conMunicipio(p.municipio, VERDE)
+    } else if (p.tipo === 'poligono') {
+      if (!acierto && tocado?.municipio) conMunicipio(tocado.municipio, ROJO)
+      conMunicipio(p.municipio, VERDE)
+      if (p.poligono.punto) {
+        figuras.push(punto(p.poligono.punto, { color: VERDE, nombre: p.poligono.nombre, radio: 6 }))
+        puntos.push(p.poligono.punto)
+      }
+    } else if (p.tipo === 'une') {
+      if (!acierto && dicho) conCarretera(dicho, ROJO)
+      conCarretera(p.codigo, VERDE)
+      conMunicipio(porNombre.get(p.a), VERDE)
+      conMunicipio(porNombre.get(p.b), VERDE)
     } else if (p.tipo === 'acceso') {
       const ultimo = p.municipio.properties.acceso.pasos.at(-1)
       if (!acierto && dicho) conCarretera(codigoDeTexto(dicho), ROJO)
@@ -249,6 +269,14 @@ async function partida(ctx, lista) {
       return [donde, m.pueblo && `Su pueblo principal es ${m.pueblo}.`].filter(Boolean).join(' ')
     }
     if (p.tipo === 'acceso') return `Camino desde Granada: ${textoAcceso(p.municipio.properties.acceso)}.`
+    if (p.tipo === 'poligono') {
+      const x = p.poligono
+      return [`El ${x.nombre} está en ${x.municipio}.`, x.nota && `${x.nota}.`, x.carretera && `Se llega por la ${x.carretera}.`, !x.punto && 'No está en el mapa.']
+        .filter(Boolean)
+        .join(' ')
+    }
+    if (p.tipo === 'red') return `La ${p.codigo} es de la ${redes[p.codigo]}.`
+    if (p.tipo === 'une') return `La ${p.codigo} pasa por los términos de ${p.a} y de ${p.b}.`
     if (p.tipo === 'salida' || p.tipo === 'coger') return `La salida ${p.salida.numero} de la ${p.salida.carretera} lleva a: ${p.salida.destinos.join(', ')}.`
     const pueblos = municipios.features.filter((f) => f.properties.carreteras.includes(p.codigo)).map((f) => f.properties.nombre)
     return `Pasa por ${pueblos.join(', ')}.`
@@ -256,7 +284,9 @@ async function partida(ctx, lista) {
 
   // Ficha del Mapa de lo que se pregunta
   const enlace = (x = p) =>
-    x.municipio
+    x.poligono?.punto
+      ? `#/mapa?lugar=${x.poligono.id}`
+      : x.municipio
       ? `#/mapa?pueblo=${encodeURIComponent(x.municipio.properties.nombre)}`
       : x.salida
         ? `#/mapa?salida=${encodeURIComponent(x.salida.id)}`
