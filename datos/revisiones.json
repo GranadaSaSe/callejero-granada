@@ -10,6 +10,11 @@
    "eleccion": "osm",
    "fecha": "2026-11-04T17:08:39.878Z"
   },
+  "292000160": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-11-11T11:48:59.808Z"
+  },
   "292000164": {
    "sentido": "directo",
    "eleccion": "osm",
@@ -65,6 +70,11 @@
    "eleccion": "osm",
    "fecha": "2026-11-04T17:42:34.820Z"
   },
+  "292000417": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-11-11T11:59:07.078Z"
+  },
   "292000423": {
    "sentido": "doble",
    "eleccion": "oficial",
@@ -99,6 +109,11 @@
    "sentido": "doble",
    "eleccion": "osm",
    "fecha": "2026-10-27T19:11:31.428Z"
+  },
+  "292000609": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-11-11T11:59:48.416Z"
   },
   "292000661": {
    "sentido": "directo",
@@ -140,10 +155,20 @@
    "eleccion": "osm",
    "fecha": "2026-10-27T19:38:41.883Z"
   },
+  "292001068": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-11-11T11:58:59.400Z"
+  },
   "292001109": {
    "sentido": "peatonal",
    "eleccion": "osm",
    "fecha": "2026-11-04T17:51:18.169Z"
+  },
+  "292001111": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-11-11T11:59:00.818Z"
   },
   "292001128": {
    "sentido": "doble",
@@ -169,6 +194,11 @@
    "sentido": "doble",
    "eleccion": "oficial",
    "fecha": "2026-10-27T19:18:47.896Z"
+  },
+  "292001176": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-11-11T11:59:03.302Z"
   },
   "292001205": {
    "sentido": "peatonal",
@@ -209,6 +239,11 @@
    "sentido": "doble",
    "eleccion": "otra",
    "fecha": "2026-10-27T19:35:59.615Z"
+  },
+  "292001470": {
+   "sentido": "peatonal",
+   "eleccion": "osm",
+   "fecha": "2026-11-11T11:40:48.938Z"
   },
   "292001574": {
    "sentido": "doble",
@@ -265,6 +300,21 @@
    "eleccion": "osm",
    "fecha": "2026-10-27T21:52:14.682Z"
   },
+  "292001772": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-11-11T11:56:01.596Z"
+  },
+  "292001779": {
+   "sentido": "peatonal",
+   "eleccion": "oficial",
+   "fecha": "2026-11-11T11:56:13.015Z"
+  },
+  "292001792": {
+   "sentido": "inverso",
+   "eleccion": "osm",
+   "fecha": "2026-11-11T11:29:58.069Z"
+  },
   "292001825": {
    "sentido": "doble",
    "eleccion": "oficial",
@@ -279,6 +329,11 @@
    "sentido": "doble",
    "eleccion": "oficial",
    "fecha": "2026-10-29T10:48:14.041Z"
+  },
+  "292001958": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-11-11T12:00:42.617Z"
   },
   "292001996": {
    "sentido": "doble",
@@ -425,6 +480,11 @@
    "eleccion": "osm",
    "fecha": "2026-10-27T19:35:39.839Z"
   },
+  "292002921": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-11-11T11:30:28.188Z"
+  },
   "292002964": {
    "sentido": "peatonal",
    "eleccion": "osm",
@@ -449,6 +509,16 @@
    "sentido": "doble",
    "eleccion": "osm",
    "fecha": "2026-10-29T10:45:33.568Z"
+  },
+  "292003166": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-11-11T11:30:36.357Z"
+  },
+  "292003192": {
+   "sentido": "inverso",
+   "eleccion": "oficial",
+   "fecha": "2026-11-11T11:34:18.867Z"
   },
   "292003266": {
    "sentido": "directo",
@@ -504,6 +574,11 @@
    "sentido": "peatonal",
    "eleccion": "osm",
    "fecha": "2026-11-06T18:34:50.377Z"
+  },
+  "292003580": {
+   "sentido": "directo",
+   "eleccion": "osm",
+   "fecha": "2026-11-11T11:58:07.788Z"
   },
   "292003597": {
    "sentido": "plaza",
@@ -569,6 +644,11 @@
    "sentido": "inverso",
    "eleccion": "otra",
    "fecha": "2026-11-06T18:34:50.377Z"
+  },
+  "292003828": {
+   "sentido": "inverso",
+   "eleccion": "osm",
+   "fecha": "2026-11-11T11:31:36.401Z"
   },
   "292003830": {
    "sentido": "peatonal",
@@ -711,9 +791,9 @@
    "fecha": "2026-11-06T18:34:50.377Z"
   },
   "292004204": {
-   "sentido": "peatonal",
-   "eleccion": "osm",
-   "fecha": "2026-11-11T11:27:09.648Z"
+   "sentido": "inverso",
+   "eleccion": "oficial",
+   "fecha": "2026-11-11T12:02:59.722Z"
   },
   "292004211": {
    "sentido": "inverso",
@@ -991,6 +1071,11 @@
    "eleccion": "osm",
    "fecha": "2026-10-27T19:16:38.194Z"
   },
+  "292005987": {
+   "sentido": "inverso",
+   "eleccion": "osm",
+   "fecha": "2026-11-11T11:33:20.505Z"
+  },
   "292005996": {
    "sentido": "inverso",
    "eleccion": "osm",
@@ -1025,6 +1110,11 @@
    "sentido": "directo",
    "eleccion": "osm",
    "fecha": "2026-10-27T19:16:52.183Z"
+  },
+  "292006225": {
+   "sentido": "peatonal",
+   "eleccion": "otra",
+   "fecha": "2026-11-11T11:47:12.403Z"
   },
   "292006226": {
    "sentido": "directo",
@@ -1221,6 +1311,11 @@
    "eleccion": "otra",
    "fecha": "2026-10-29T10:19:19.525Z"
   },
+  "292007772": {
+   "sentido": "doble",
+   "eleccion": "oficial",
+   "fecha": "2026-11-11T12:00:31.854Z"
+  },
   "292007783": {
    "sentido": "doble",
    "eleccion": "oficial",
@@ -1250,6 +1345,11 @@
    "sentido": "doble",
    "eleccion": "osm",
    "fecha": "2026-11-11T11:19:17.495Z"
+  },
+  "292007863": {
+   "sentido": "directo",
+   "eleccion": "oficial",
+   "fecha": "2026-11-11T11:37:35.364Z"
   },
   "292007864": {
    "sentido": "doble",
@@ -1430,6 +1530,11 @@
    "sentido": "doble",
    "eleccion": "osm",
    "fecha": "2026-11-04T17:53:07.521Z"
+  },
+  "292008630": {
+   "sentido": "peatonal",
+   "eleccion": "osm",
+   "fecha": "2026-11-11T11:37:42.226Z"
   },
   "292008639": {
    "sentido": "inverso",
@@ -1696,6 +1801,11 @@
    "eleccion": "osm",
    "fecha": "2026-10-28T08:29:08.255Z"
   },
+  "292010405": {
+   "sentido": "peatonal",
+   "eleccion": "oficial",
+   "fecha": "2026-11-11T11:51:48.546Z"
+  },
   "292010481": {
    "sentido": "inverso",
    "eleccion": "osm",
@@ -1870,6 +1980,16 @@
    "sentido": "doble",
    "eleccion": "oficial",
    "fecha": "2026-10-27T19:22:33.366Z"
+  },
+  "292011214": {
+   "sentido": "doble",
+   "eleccion": "osm",
+   "fecha": "2026-11-11T11:57:41.951Z"
+  },
+  "292011215": {
+   "sentido": "doble",
+   "eleccion": "osm",
+   "fecha": "2026-11-11T11:57:43.121Z"
   },
   "292011317": {
    "sentido": "directo",
@@ -2196,6 +2316,21 @@
    "eleccion": "oficial",
    "fecha": "2026-10-29T10:47:27.534Z"
   },
+  "292011822": {
+   "sentido": "peatonal",
+   "eleccion": "osm",
+   "fecha": "2026-11-11T11:41:38.064Z"
+  },
+  "292011823": {
+   "sentido": "peatonal",
+   "eleccion": "osm",
+   "fecha": "2026-11-11T11:41:44.387Z"
+  },
+  "292011825": {
+   "sentido": "peatonal",
+   "eleccion": "osm",
+   "fecha": "2026-11-11T11:41:46.222Z"
+  },
   "292011828": {
    "sentido": "doble",
    "eleccion": "otra",
@@ -2285,6 +2420,11 @@
    "sentido": "plaza",
    "eleccion": "otra",
    "fecha": "2026-11-11T11:27:09.648Z"
+  },
+  "292012224": {
+   "sentido": "doble",
+   "eleccion": "osm",
+   "fecha": "2026-11-11T11:58:56.910Z"
   },
   "292012253": {
    "sentido": "directo",
