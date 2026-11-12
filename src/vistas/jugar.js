@@ -52,8 +52,8 @@ export async function abrir(contenedor) {
   // Los controles del mapa se colocan justo encima del panel de abajo, que cambia de alto
   new ResizeObserver(() => juego.style.setProperty('--hueco-abajo', `${abajo.offsetHeight + 16}px`)).observe(abajo)
 
-  const [calles, tramos, zonas, fondo, lugares, municipios, carreteras, salidas, red, poligonos, redes] = await Promise.all(
-    ['calles', 'tramos', 'zonas', 'fondo', 'lugares', 'municipios', 'carreteras', 'salidas', 'red', 'poligonos', 'redes'].map(cargar),
+  const [calles, tramos, zonas, fondo, lugares, municipios, carreteras, salidas, red, poligonos, redes, nucleos, rumbos] = await Promise.all(
+    ['calles', 'tramos', 'zonas', 'fondo', 'lugares', 'municipios', 'carreteras', 'salidas', 'red', 'poligonos', 'redes', 'nucleos', 'rumbos'].map(cargar),
   )
 
   // Rectángulo de cada distrito y de toda Granada, para encuadrar el mapa al empezar cada pregunta
@@ -163,7 +163,7 @@ export async function abrir(contenedor) {
 
   // Lo que los juegos usan de la pestaña
   const ctx = {
-    datos: { calles, tramos, lugares, municipios, carreteras, salidas, red, poligonos, redes },
+    datos: { calles, tramos, lugares, municipios, carreteras, salidas, red, poligonos, redes, nucleos, rumbos },
     pagina,
     arriba,
     abajo,

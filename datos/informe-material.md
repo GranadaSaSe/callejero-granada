@@ -264,8 +264,73 @@ Línea entre los dos parques: Camino de Camaura, Calle Méndez Núñez, Avenida 
 | Red Complementaria | A-92GR1, A-395R1, A-395R2, A-4004, A-4025, A-4030, A-4050, A-4076 |
 | Red Básica de Articulación | A-403 |
 
+## Núcleos de población de la zona
+
+207 núcleos (pueblos que no son el principal de su municipio, aldeas, barriadas y urbanizaciones) según OpenStreetMap; 13 con un nombre que se repite en otro municipio (no salen en las preguntas).
+
+| Municipio | Núcleos |
+| --- | --- |
+| Albolote | Cortijo del Aire (pueblo), El Chaparral (pueblo), La Farfana (barriada), Parque del Cubillas (aldea), Pretel (aldea), Urbanización Buenavista (barriada), Urbanización El Torreón (barriada), Urbanización Huerta del Canal (urbanización), Urbanización Las Palmeras (urbanización), Urbanización Terrazas del Aire (urbanización) |
+| Albuñuelas | Barrio Bajo (barriada), De la Loma (aldea), Los Recaldes (barriada) |
+| Alfacar | Fuente Grande (pueblo), Urbanización Guadalfacar (urbanización) |
+| Alhendín | Residencial Cortijos Blancos (urbanización), Residencial La Aurora (urbanización), Residencial La Quinta (urbanización), Urbanización Caserío de los Llanos (urbanización), Urbanización El Arenal (urbanización), Urbanización Fuente Roldana (urbanización), Urbanización La Ermita (urbanización), Urbanización La Masía (urbanización), Urbanización Sueños de Cadima (urbanización) |
+| Armilla | Residencial Nevada (urbanización), Santa Juliana (barrio), Urbanización Novocampus (urbanización) |
+| Atarfe | Caparacena (aldea), Residencial Estrella de Atarfe (urbanización), Residencial Gran Plaza (urbanización), Residencial Parque de la Higueruela (urbanización), Residencial Puerta Elvira (urbanización), Sierra Elvira (aldea), Urbanización Balcón del Cubillas (urbanización), Urbanización Hadira Elvira (urbanización), Urbanización La Rivera (urbanización), Urbanización Llanos de Silva (barriada), Urbanización Los Cortijos (urbanización), Urbanización Medina Elvira (urbanización), Urbanización Mirador de Cubillas (urbanización), Urbanización Señorío del Cubillas (urbanización), Urbanización Vista Alegre (urbanización) |
+| Cájar | Bellavista (barriada) |
+| Cenes de la Vega | Cerro del Oro (barriada), Mirasierra (barriada), Urbanización Cerro del Sol (barriada), Urbanización la Cantona (barriada), Urbanización Los Abetos Cerro del Oro (urbanización), Urbanización Sotoblanco (barriada), Vista Blanca (barriada) |
+| Chauchina | Romilla (aldea), Romilla La Nueva (aldea) |
+| Chimeneas | Castillo de Tajarja (aldea) |
+| Cogollos de la Vega | Solana de la Mora (barriada) |
+| Cúllar Vega | Barrio de los Remedios (aldea), El Ventorrillo (pueblo) |
+| Dílar | Urbanización Cañadas del Parque (barriada) |
+| Dúdar | Aguas Blancas (aldea) |
+| Dúrcal | Marchena (aldea), Urbanización La Moranja (urbanización) |
+| El Valle | Melegís (aldea), Saleres (aldea) |
+| Fuente Vaqueros | Casa Real (barriada), La Paz (aldea) |
+| Gójar | Cañada de la Virgen (barriada), Cañada de los Fenicios (barriada), Estanque de Gójar (barriada), San Francisco (barriada), Santa Marta (barriada), Urbanización Aldea 1 (urbanización), Urbanización Aldea 2 (urbanización), Urbanización Aldea 3 (urbanización), Urbanización Aldea 4 (urbanización), Urbanización Florida Este (urbanización), Urbanización Florida Sur (urbanización), Urbanización La Almazara (urbanización), Urbanización Los Cerezos Fase 2 (urbanización), Urbanización Los Cerezos Fase III (urbanización), Urbanización Los Parrales (urbanización), Urbanización Santa Marta (urbanización), Urbanización Yaujara (urbanización), Viñas Nuevas (barriada) |
+| Güéjar Sierra | Barrio Alto (barriada), Canales (aldea), El Peñón (barriada), Padules (barriada) |
+| Huétor de Santillán | El Colmenar (barriada), El Molinillo (aldea), Prado Negro (aldea), Urbanización Sotanillas (urbanización) |
+| Huétor Vega | Barrio Los Corteses (barriada), Los Almendros (barriada), Los Corteses (barriada), Los Rebites (barriada), San Miguel (barriada) |
+| Íllora | Alomartes (pueblo), Barrio Bajo (barriada), Barrio de Buenos Aires (barriada), Brácana (aldea), Escóznar (aldea), La Alhondiguilla (aldea), La Loma de Taura (aldea), Las Eras (barriada), Obéilar (aldea), Tocón (pueblo), Vallequemado (aldea), Ventas de Algarra (aldea) |
+| Jun | La Isla (barriada), Urbanización Abén Humeya y Valle Baltodano (urbanización) |
+| La Zubia | Barrio Ermitaño (barriada), Cumbres Verdes (aldea), El Barrichuelo (aldea), Laurel de la Reina (barriada), San Antonio (barriada) |
+| Láchar | Peñuelas (aldea) |
+| Las Gabias | Gabia Chica (aldea), Híjar (pueblo), Los Llanos (barriada), Pedro Verde (aldea), Residencial La Longuera (urbanización), Residencial Las Gabias (urbanización), Urbanización Cuesta de los Chinos (urbanización), Urbanización San Javier (aldea) |
+| Lecrín | Acequias (aldea), Béznar (aldea), Chite (aldea), El Cerrillo (barriada), Mondújar (aldea), Murchas (aldea), Peloteos (aldea) |
+| Moclín | Barrio Alto (barriada), Barrio Bajo (barriada), Barrio Las Majadillas (barriada), Barrio Nacimiento (barriada), Blas Infante (barriada), Buenavista (barriada), Caserío de Berbe Bajo (barriada), El Plantonar (barriada), El Tomillar (barriada), Gumiel (aldea), La Cantera (barriada), La Umbría (barriada), Las Callejuelas (barriada), Limones (aldea), Olivar Alto (barriada), Olivares (aldea), Puerto Lope (pueblo), Tiena (aldea), Tózar (aldea), Yesares (barriada) |
+| Monachil | Barrio de la Vega (pueblo), Barrio de Monachil (barriada), Cerro del Laúd (barriada), Colinas Bermejas (barriada), El Genital (barriada), Los Llanos (barriada), Pradollano (aldea), Villas de Colinas (barriada) |
+| Nívar | Urbanización Alfaguara (barriada), Urbanización El Totobio (barriada) |
+| Ogíjares | Loma Bella (barriada), Loma Linda (barriada), Residencial Álamo Blanco (urbanización), Residencial Altas Miras (urbanización), Residencial Arana (urbanización), Residencial Loma Bella (urbanización), Urbanización Caserío de los Llanos (Quinta Fase) (urbanización), Urbanización El Carmelo (urbanización), Urbanización El Paraíso (urbanización), Urbanización La Loma (urbanización), Urbanización Los Olmos (urbanización), Urbanización San Nicolás (urbanización) |
+| Padul | El Puntal (pueblo), Urbanización Cahíz de San Gregorio (aldea), Valcaire (barriada) |
+| Peligros | Monteluz (pueblo), Urbanización Nueva Monteluz (barriada) |
+| Pinos Genil | Los Pinillos (aldea) |
+| Pinos Puente | Alitaje (aldea), Ánzola (aldea), Búcor (aldea), Cantarrana-Buenavista (aldea), Casanueva (pueblo), Fuensanta (aldea), La Estación (barriada), La Paz (barriada), Las Angustias (barriada), Las Flores (barriada), San Cristóbal (barriada), Torrehueca-Torre Abeca (aldea), Trasmulas (aldea), Vista Alegre (barriada), Zujaira (aldea) |
+| Pulianas | Pulianillas (pueblo), Urbanización La Joya (pueblo), Urbanización Los Olivos (aldea), Urbanización Pueblo Árabe (urbanización) |
+| Quéntar | La Solana (barriada), La Umbría (barriada), Tocón (aldea) |
+| Santa Fe | El Jau (pueblo), Pedro Ruiz (aldea) |
+| Vegas del Genil | Ambroz (pueblo), Belicena (pueblo), Casas Bajas (pueblo) |
+| Villa de Otura | Urbanización Suspiro del Moro (aldea) |
+| Villamena | Cónchar (aldea) |
+
+## Calles sin salida para vehículos
+
+96 calles pequeñas sin salida para coches (un extremo al que no llega ninguna otra calle de coches), y 245 con salida por los dos lados. Solo se miran calles de barrio sin tramos dudosos.
+
+## Rumbo de las carreteras desde Granada
+
+| Rumbo | Carreteras |
+| --- | --- |
+| norte | GR-3421, GR-3424, GR-3422, GR-3423 |
+| noreste | GR-3102, A-4003, GR-3107, A-4004 |
+| este | A-4025, A-4030, A-4026, GR-3200 |
+| sureste | GR-3202, A-4028, A-4027 |
+| sur | GR-3204, A-348, GR-3208, GR-3300, GR-3210, GR-3301, GR-3209, GR-3211, GR-3207, GR-3206, GR-3203, GR-3205 |
+| suroeste | GR-3302, A-338, GR-3309, GR-3308, GR-3303, GR-3306 |
+| oeste | GR-3312, GR-3400, GR-3402, GR-4403, A-335, GR-3401, GR-3404, GR-3425, A-4075, GR-3313, GR-3305 |
+| noroeste | GR-3410, GR-3407, GR-3409, N-432, GR-3411, GR-3414, GR-3408, GR-3406, GR-3417, GR-3412, A-4076, GR-3413, GR-3416, GR-3415, A-403 |
+
 ## Incorporaciones
 
-1044 calles con «¿cómo me incorporo a la calle de su final?» calculado con la red de los trayectos (girando a la derecha, a la izquierda o a los dos lados).
+1045 calles con «¿cómo me incorporo a la calle de su final?» calculado con la red de los trayectos (girando a la derecha, a la izquierda o a los dos lados).
 
 Fuentes: material de la persona · Catastro (Dirección General del Catastro, CC BY 4.0) · © colaboradores de OpenStreetMap (ODbL) · CDAU (Junta de Andalucía, CC BY 4.0).

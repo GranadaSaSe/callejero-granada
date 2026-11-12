@@ -101,6 +101,15 @@ out center tags qt;`,
 );
 out center tags qt;`,
 
+  // Núcleos de población de la zona: pueblos, aldeas, barriadas y urbanizaciones con nombre
+  nucleos: `[out:json][timeout:180][bbox:${RECTANGULO_ZONA}];
+(
+  node["place"~"^(town|village|hamlet|suburb|neighbourhood|quarter|isolated_dwelling|locality)$"]["name"];
+  way["place"~"^(town|village|hamlet|suburb|neighbourhood|quarter)$"]["name"];
+  way["landuse"="residential"]["name"~"^(Urbanizaci|Residencial|Zona Residencial|Urb\\.)"];
+);
+out center tags qt;`,
+
   // Tipo de red de cada carretera (Red Básica Estructurante, Complementaria Metropolitana, Provincial...)
   rutas: `[out:json][timeout:180][bbox:${RECTANGULO_ZONA}];
 rel["type"="route"]["route"="road"];

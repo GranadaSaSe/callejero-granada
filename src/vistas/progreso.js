@@ -57,11 +57,11 @@ const cifra = (numero, texto) => crear('div', { class: 'cifra' }, crear('strong'
 export async function abrir(contenedor) {
   const pagina = crear('div', { class: 'pagina' }, crear('p', { class: 'cargando-texto' }, 'Calculando tu progreso…'))
   contenedor.append(pagina)
-  const [calles, lugares, municipios, salidas, tramos, poligonos, redes, altos] = await Promise.all(
-    ['calles', 'lugares', 'municipios', 'salidas', 'tramos', 'poligonos', 'redes', 'altos'].map(cargar),
+  const [calles, lugares, municipios, salidas, tramos, poligonos, redes, altos, nucleos, rumbos] = await Promise.all(
+    ['calles', 'lugares', 'municipios', 'salidas', 'tramos', 'poligonos', 'redes', 'altos', 'nucleos', 'rumbos'].map(cargar),
   )
   // Zona de los parques de Granada (paso 2.5), con sus polígonos y el tipo de red de cada carretera (paso 3.5)
-  const zona = { municipios, salidas, poligonos, redes }
+  const zona = { municipios, salidas, poligonos, redes, nucleos, rumbos }
   let periodo = 30
   let nivelZonas = 'medio' // qué calles cuentan en «Por zonas»
   let editandoFecha = false

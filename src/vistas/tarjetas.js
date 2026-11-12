@@ -48,11 +48,11 @@ export async function abrir(contenedor) {
   const pagina = crear('div', { class: 'pagina' }, crear('p', { class: 'cargando-texto' }, 'Preparando las tarjetas…'))
   contenedor.append(pagina)
 
-  const [calles, lugares, municipios, salidas, poligonos, redes, altos] = await Promise.all(
-    ['calles', 'lugares', 'municipios', 'salidas', 'poligonos', 'redes', 'altos'].map(cargar),
+  const [calles, lugares, municipios, salidas, poligonos, redes, altos, nucleos, rumbos] = await Promise.all(
+    ['calles', 'lugares', 'municipios', 'salidas', 'poligonos', 'redes', 'altos', 'nucleos', 'rumbos'].map(cargar),
   )
   // Zona de los parques de Granada (paso 2.5), con sus polígonos y el tipo de red de cada carretera (paso 3.5)
-  const zona = { municipios, salidas, poligonos, redes }
+  const zona = { municipios, salidas, poligonos, redes, nucleos, rumbos }
   const estados = leer(CLAVES.estados, {})
   const ajustes = {
     mazos: MAZOS.map((m) => m.id),
@@ -227,6 +227,15 @@ export async function abrir(contenedor) {
           botonNota(() => ({ modo: 'Tarjetas de repaso', tarjeta })),
           crear('p', { class: 'etiqueta' }, NOMBRE_MAZO[tarjeta.mazo], estado ? '' : ' · nueva'),
           crear('h2', { class: 'pregunta-tarjeta' }, tarjeta.pregunta),
+          // Las preguntas como las del examen traen sus tres opciones (a, b, c)
+          tarjeta.datos?.opciones &&
+            crear(
+              'ul',
+              { class: 'opciones-corregidas' },
+              tarjeta.datos.opciones.map((o, i) =>
+                crear('li', { class: destapada && o === tarjeta.respuesta ? 'es-correcta' : '' }, `${'abc'[i]}) ${o}`, destapada && o === tarjeta.respuesta ? ' ✔' : ''),
+              ),
+            ),
           destapada && [
             crear('p', { class: 'respuesta-tarjeta' }, tarjeta.respuesta),
             tarjeta.detalle && crear('p', { class: 'detalle-tarjeta' }, tarjeta.detalle),

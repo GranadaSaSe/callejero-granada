@@ -70,7 +70,7 @@ function registros({ calles, lugares, tramos, municipios, salidas }, { estados, 
   for (const [id, e] of Object.entries(estados)) {
     const [tipo, resto] = [id.slice(0, id.indexOf(':')), id.slice(id.indexOf(':') + 1)]
     if (['zona', 'extremos', 'sentido', 'cruces'].includes(tipo)) apuntar(`c:${resto.split(':')[0]}`, callePorId.get(resto.split(':')[0]), deTarjeta(e))
-    else if (tipo === 'lugares') apuntar(`l:${resto}`, lugarPorId.get(resto), deTarjeta(e))
+    else if (tipo === 'lugares') apuntar(`l:${resto.split(':')[0]}`, lugarPorId.get(resto.split(':')[0]), deTarjeta(e))
     else if (resto.startsWith('acceso:')) apuntar(`p:${resto.slice(7)}`, puebloPorNombre.get(resto.slice(7)), deTarjeta(e))
     else if (resto.startsWith('salida:')) apuntar(`s:${resto.slice(7)}`, salidaPorId.get(resto.slice(7)), deTarjeta(e))
     else if (resto.startsWith('coger:')) {

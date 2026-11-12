@@ -5,7 +5,10 @@
 // Cada tarjeta tiene un id fijo (el progreso se guarda por id) y su texto se calcula con los datos del
 // momento, así que si se corrige un dato la tarjeta muestra ya la respuesta corregida.
 // Este archivo no usa nada del navegador, así que se puede probar con Node.
+import { nombreLlevaLaCalle, tarjetasDeExamen } from './preguntas-examen.js'
 import { tarjetasZona } from './zona-preguntas.js'
+
+export { nombreLlevaLaCalle }
 
 export const MAZOS = [
   { id: 'zona', nombre: 'Distrito y barrio de cada calle' },
@@ -26,12 +29,6 @@ export const GIROS = {
 }
 const SEGUIR_RECTO = 'Siguiendo recto'
 const DISTRITOS = ['Albaicín', 'Beiro', 'Centro', 'Chana', 'Genil', 'Norte', 'Ronda', 'Zaidín']
-// Si el nombre de un edificio lleva el de su calle («Corrala de Santiago», en Calle Santiago), la pregunta se responde sola
-const sinTildes = (texto) => texto.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
-export function nombreLlevaLaCalle(nombre, calle) {
-  const base = sinTildes(calle).replace(/^(calle|avenida|plaza|placeta|plazoleta|paseo|camino|cuesta|callejon|carrera|carril|barranco|pasaje|glorieta)\s+((de|del|de la|de los|de las)\s+)?/, '')
-  return sinTildes(nombre).includes(base)
-}
 const textoDistritoParque = (distrito, parque) => `Distrito ${distrito}, Parque ${parque}`
 
 // Los lugares más útiles para un bombero, primero
@@ -115,7 +112,9 @@ export function crearTarjetas({ calles, lugares, ejes, zona = null, altos = [] }
       })
     }
     // «¿Cómo podemos incorporarnos a A desde B?» (calculado con la red de los trayectos)
-    for (const x of c.incorporaciones ?? []) {
+    // Si la otra calle está en los dos extremos (una calle en U), no se sabe por cuál se llega: fuera
+    const otras = (c.incorporaciones ?? []).map((x) => x.calle)
+    for (const x of (c.incorporaciones ?? []).filter((y) => otras.indexOf(y.calle) === otras.lastIndexOf(y.calle))) {
       const respuesta = GIROS[x.giro]
       mazos.sentido.push({
         ...base,
@@ -245,6 +244,14 @@ export function crearTarjetas({ calles, lugares, ejes, zona = null, altos = [] }
       datos: { falsas: [-2, 2, -1, 1, 3, -3, 4].map((d) => a.plantas + d).filter((n) => n > 0).map(plantas) },
     })
   }
+
+  // Preguntas con la forma de las de los exámenes (src/preguntas-examen.js), cada una en su mazo
+  // Intercaladas con las de siempre, para que salgan desde el primer día entre las tarjetas nuevas
+  for (const [mazo, lista] of Object.entries(tarjetasDeExamen({ calles, lugares, altos }))) {
+    const antes = mazos[mazo]
+    mazos[mazo] = []
+    for (let i = 0; i < Math.max(antes.length, lista.length); i++) mazos[mazo].push(...[antes[i], lista[i]].filter(Boolean))
+  }
   return mazos
 }
 
@@ -265,15 +272,22 @@ export function crearOpciones(t, mazos, azar = Math.random) {
   const correcta = t.respuesta
   const algunaDe = (lista) => lista[Math.floor(azar() * lista.length)]
   let falsas = []
+  if (t.datos?.opciones) {
+    // Tarjetas con sus opciones escritas (como en el examen): esas y una cuarta, si la hay
+    const todas = [...t.datos.opciones, ...(t.datos.extra ? [t.datos.extra] : [])]
+    return t.datos.orden ? todas : barajar(todas, azar)
+  }
+  // Las tarjetas de siempre de cada mazo (sin las que traen sus opciones escritas), para sacar de ellas respuestas falsas
+  const clasicas = (mazo) => mazos[mazo].filter((x) => !x.datos?.opciones && !x.datos?.falsas)
   if (t.datos?.falsas) {
     // Las tarjetas que ya traen sus respuestas falsas más parecidas (zona, parques, edificios, incorporaciones)
     falsas = elegir(t.datos.falsas, 3, correcta, azar)
   } else if (t.mazo === 'zona') {
-    falsas = elegir(mazos.zona.map((x) => x.respuesta), 3, correcta, azar)
+    falsas = elegir(clasicas('zona').map((x) => x.respuesta), 3, correcta, azar)
   } else if (t.mazo === 'extremos') {
     // La buena al revés y mezclas con calles que de verdad cruza
     const { inicio, fin, cruces } = t.datos
-    const otras = cruces.length >= 2 ? cruces : mazos.extremos.map((x) => x.datos.inicio[0])
+    const otras = cruces.length >= 2 ? cruces : clasicas('extremos').map((x) => x.datos.inicio[0])
     const [i, f] = [juntarO(inicio), juntarO(fin)]
     falsas = elegir(
       [
@@ -305,11 +319,11 @@ export function crearOpciones(t, mazos, azar = Math.random) {
       .slice(0, 6)
       .map(([, c]) => c)
     falsas = elegir(cercanas, 3, correcta, azar)
-    if (falsas.length < 3) falsas.push(...elegir(mazos.cruces.map((x) => x.respuesta), 3 - falsas.length, correcta, azar))
+    if (falsas.length < 3) falsas.push(...elegir(clasicas('cruces').map((x) => x.respuesta), 3 - falsas.length, correcta, azar))
   } else if (t.mazo === 'lugares') {
-    const mismoTipo = mazos.lugares.filter((x) => x.datos.categoria === t.datos.categoria && x.datos.via !== t.datos.via)
+    const mismoTipo = clasicas('lugares').filter((x) => x.datos.categoria === t.datos.categoria && x.datos.via !== t.datos.via)
     falsas = elegir(mismoTipo.map((x) => x.respuesta), 3, correcta, azar)
-    if (falsas.length < 3) falsas.push(...elegir(mazos.lugares.map((x) => x.respuesta), 3 - falsas.length, correcta, azar))
+    if (falsas.length < 3) falsas.push(...elegir(clasicas('lugares').map((x) => x.respuesta), 3 - falsas.length, correcta, azar))
   } else if (t.mazo === 'carreteras') {
     // Las de los pueblos o salidas de alrededor, que la tarjeta ya trae
     falsas = elegir(t.datos.falsas, 3, correcta, azar)

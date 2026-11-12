@@ -69,6 +69,11 @@ const deTarjeta = (t, mazos, tema, azar) => {
     const opciones = Object.values(GIROS)
     return { id: t.id, tema, tarjeta: t.id, pregunta: t.pregunta, opciones, correcta: opciones.indexOf(t.respuesta), explicacion: [t.respuesta, t.detalle].filter(Boolean).join('. '), enlace: t.enlace }
   }
+  // Tarjetas con sus tres opciones escritas (src/preguntas-examen.js): tal cual, como en el examen
+  if (t.datos?.opciones) {
+    const opciones = t.datos.orden ? t.datos.opciones : barajar(t.datos.opciones, azar)
+    return { id: t.id, tema, tarjeta: t.id, pregunta: t.pregunta, opciones, correcta: opciones.indexOf(t.respuesta), explicacion: [t.respuesta, t.detalle].filter(Boolean).join('. '), enlace: t.enlace }
+  }
   const todas = crearOpciones(t, mazos, azar)
   if (!todas) return null
   const { opciones, correcta } = recortarOpciones(todas, todas.indexOf(t.respuesta), azar)
@@ -186,7 +191,7 @@ function recetas({ calles, lugares, ejes, zona = null, trayectos = null, altos =
 
   for (const t of deMazo('sentido')) r.sentido.push(() => deTarjeta(t, mazos, 'sentido', azar))
 
-  for (const t of mazos.cruces.filter((x) => enZona(x.distrito))) r.cruces.push(() => deTarjeta(t, mazos, 'cruces', azar))
+  for (const t of deMazo('cruces')) r.cruces.push(() => deTarjeta(t, mazos, 'cruces', azar))
   // "¿Cuál de estas calles cruza con...?": las falsas son del mismo distrito pero no la tocan
   for (const c of validas.filter((x) => x.cruces.length >= 3)) {
     r.cruces.push(() => {

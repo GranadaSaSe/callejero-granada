@@ -600,6 +600,10 @@ function recorrido(via) {
   const conDato = trozos.filter((v) => v.size).map(valorDeTrozo)
   const [masComun, veces] = contarValores(conDato)[0] ?? ['desconocido', 0]
   const sentido = conDato.length && veces >= 0.85 * conDato.length ? masComun : 'mixto'
+  // Qué parte de la calle (en %) es de doble sentido, de sentido único hacia el final o hacia el inicio y peatonal:
+  // para «¿es de doble sentido en toda su longitud, de sentido único o de los dos de forma alternativa?»
+  const parte = (valor) => (conDato.length ? Math.round((conDato.filter((v) => v === valor).length / conDato.length) * 100) : 0)
+  const reparto = ['doble', 'hacia el final', 'hacia el inicio', 'peatonal'].map(parte)
 
   return {
     partes: partes.length,
@@ -608,6 +612,7 @@ function recorrido(via) {
     cruces: crucesConLado.map((c) => c.nombre),
     lados: crucesConLado.map((c) => c.lado),
     sentido,
+    reparto,
     longitudPrincipal: total,
   }
 }
@@ -660,6 +665,8 @@ for (const via of vias.values()) {
     cruces: r.cruces,
     lados: r.lados,
     sentido: r.sentido,
+    // [% doble, % único hacia el final, % único hacia el inicio, % peatonal]
+    reparto: r.reparto,
     numeros: numeros.length ? [Math.min(...numeros), Math.max(...numeros)] : null,
     codigosPostales: unicos(via.portales.map((p) => p.cp).filter(Boolean)).sort(),
     partes: r.partes,
@@ -757,6 +764,50 @@ await guardar('red.json', red)
 // «¿Cómo me incorporo a la calle A desde la calle B?»: hacia qué lado se gira al llegar al final de B (examen de 2022)
 const giros = incorporaciones(red, calles)
 for (const c of calles) if (giros.has(c.id)) c.incorporaciones = giros.get(c.id)
+
+// Calles sin salida para vehículos (examen de 2025): en la red de los trayectos (solo lo que es para coches), un
+// extremo de la calle al que no llega ningún otro tramo. Para no dar por cerrada una calle que solo está mal dibujada,
+// ese extremo no puede tener otro tramo a menos de 15 m; y solo se pregunta por calles pequeñas sin tramos dudosos.
+// "salida": 'sin' (sin salida) o 'con' (se entra y se sale por los dos lados).
+{
+  const grado = new Map()
+  const tramosDeCalle = new Map()
+  for (const t of red.tramos) {
+    const [, nombre, a, b, , , , marcas] = t
+    grado.set(a, (grado.get(a) ?? 0) + 1)
+    grado.set(b, (grado.get(b) ?? 0) + 1)
+    if (!nombre) continue
+    if (!tramosDeCalle.has(nombre)) tramosDeCalle.set(nombre, [])
+    tramosDeCalle.get(nombre).push(t)
+  }
+  const indiceRed = crearIndice(40)
+  for (const t of red.tramos) {
+    const plano = t[8]
+    for (let i = 2; i < plano.length; i += 2) indiceRed.anadir([plano[i - 2], plano[i - 1]], [plano[i], plano[i + 1]], t)
+  }
+  const otroCerca = (nodo, propios) => {
+    const p = red.nodos[nodo]
+    for (const c of indiceRed.cercanos(p)) if (!propios.has(c.dato) && distanciaASegmento(p, c.a, c.b) < 15) return true
+    return false
+  }
+  for (const c of calles) {
+    const suyos = tramosDeCalle.get(c.nombre)
+    if (!suyos || c.tramosDudosos || c.sentido === 'peatonal' || suyos.some((t) => t[7] & 1) || c.importancia < 4 || c.longitud > 600) continue
+    // Calles con el mismo nombre en dos sitios: no se sabe de cuál se habla
+    if (calles.filter((x) => x.nombre === c.nombre).length > 1) continue
+    const propios = new Set(suyos)
+    const veces = new Map()
+    for (const t of suyos) for (const n of [t[2], t[3]]) veces.set(n, (veces.get(n) ?? 0) + 1)
+    const puntas = [...veces].filter(([, v]) => v === 1).map(([n]) => n)
+    if (puntas.length !== 2) continue // una calle en varios trozos o en anillo: mejor no preguntar
+    const cerradas = puntas.filter((n) => grado.get(n) === 1)
+    if (cerradas.some((n) => otroCerca(n, propios))) continue
+    if (cerradas.length) c.salida = 'sin'
+    // «Con salida» solo si se ve claro: calle de 120 m o más con un cruce de verdad (tres tramos o más) en cada punta.
+    // El examen de 2025 da la Calle Vadillo (82 m) como sin salida y en el callejero tiene salida por los dos lados.
+    else if (c.longitud >= 120 && puntas.every((n) => grado.get(n) >= 3)) c.salida = 'con'
+  }
+}
 await guardar('calles.json', calles)
 
 // Tramos dudosos para el mapa de revisión, de las calles principales a las secundarias.
@@ -1037,6 +1088,32 @@ for (const f of carreteras) {
   if (tipo) f.properties.tipoRed = tipo
 }
 await guardar('carreteras.json', coleccion(carreteras))
+// Hacia dónde queda cada carretera desde el centro de Granada (examen de 2025: «¿cuál de estas carreteras se sitúa al
+// noroeste de la ciudad?»): el rumbo de sus puntos a más de 2 km del Ayuntamiento; solo si al menos el 85 % caen en el
+// mismo de los ocho rumbos. { "GR-3407": "noroeste", ... }
+const RUMBOS = ['norte', 'noreste', 'este', 'sureste', 'sur', 'suroeste', 'oeste', 'noroeste']
+const rumbos = {}
+{
+  const puntosDe = new Map()
+  for (const f of carreteras) for (const c of f.properties.codigo.split(' / ')) {
+    if (!puntosDe.has(c)) puntosDe.set(c, [])
+    puntosDe.get(c).push(...f.geometry.coordinates)
+  }
+  for (const [codigo, puntos] of puntosDe) {
+    if (!/^(A|N|GR)-\d+G?$/.test(codigo)) continue
+    const lejos = puntos.filter((p) => distancia(p, AYUNTAMIENTO) > 2000)
+    if (lejos.length < 5) continue
+    const sector = (p) => {
+      const [x, y] = aMetros([p[0] - AYUNTAMIENTO[0], p[1] - AYUNTAMIENTO[1]])
+      const grados = ((Math.atan2(x, y) * 180) / Math.PI + 360) % 360
+      return RUMBOS[Math.round(grados / 45) % 8]
+    }
+    const [masComun, veces] = contarValores(lejos.map(sector))[0]
+    if (veces >= 0.85 * lejos.length) rumbos[codigo] = masComun
+  }
+}
+await guardar('rumbos.json', rumbos)
+
 // Lo mismo en un archivo pequeño para las preguntas ({ "A-92": "Red Básica Estructurante", ... }), solo con los
 // códigos de verdad (sin ramales como A-395R1 ni travesías antiguas como N-323A)
 await guardar(
@@ -1138,6 +1215,53 @@ const poligonos = POLIGONOS.map((p, i) => {
 })
 await guardar('poligonos.json', poligonos)
 
+// Núcleos de población de la zona (OpenStreetMap: pueblos, aldeas, barriadas y urbanizaciones): en qué municipio está
+// cada uno y qué carreteras con código pasan a menos de 300 m. Para «tenemos un incendio en la zona residencial San
+// Javier, ¿a qué municipio nos dirigimos?» o «la GR-3415 nos dirige hacia...» (exámenes de 2025). Sin el pueblo
+// principal de cada municipio ni los barrios de Granada capital (esos ya están en el callejero).
+const nucleosOsm = await leer('osm-nucleos.json').catch(() => ({ elements: [] }))
+const TIPOS_NUCLEO = {
+  town: 'pueblo',
+  village: 'pueblo',
+  hamlet: 'aldea',
+  suburb: 'barrio',
+  quarter: 'barrio',
+  neighbourhood: 'barriada',
+}
+const nucleos = []
+{
+  const principales = new Set(municipios.flatMap((m) => [m.nombre, m.pueblo].filter(Boolean).map(normalizar)))
+  const cercanas = (p) => {
+    const codigos = new Set()
+    for (const f of carreteras) {
+      const linea = f.geometry.coordinates
+      for (let i = 1; i < linea.length; i++) {
+        if (distanciaASegmento(p, linea[i - 1], linea[i]) < 300) {
+          for (const c of f.properties.codigo.split(' / ')) if (/^(A|N|GR)-\d+G?$/.test(c)) codigos.add(c)
+          break
+        }
+      }
+    }
+    return [...codigos].sort((a, b) => a.localeCompare(b, 'es', { numeric: true }))
+  }
+  for (const e of nucleosOsm.elements) {
+    const t = e.tags ?? {}
+    const punto = e.type === 'node' ? [e.lon, e.lat] : e.center ? [e.center.lon, e.center.lat] : null
+    if (!punto || !t.name) continue
+    const tipo = TIPOS_NUCLEO[t.place] ?? (t.landuse === 'residential' ? 'urbanización' : null)
+    if (!tipo) continue
+    const municipio = municipioEn(punto)
+    if (!municipio || municipio === 'Granada' || principales.has(normalizar(t.name))) continue
+    // El mismo sitio dos veces (punto y área): se queda el primero
+    if (nucleos.some((n) => n.nombre === t.name && distancia(n.punto, punto) < 1500)) continue
+    nucleos.push({ nombre: t.name, tipo, municipio, punto: redondear([punto])[0], carreteras: cercanas(punto), osm: `${e.type[0]}${e.id}` })
+  }
+  // Un nombre que está en dos municipios no sirve para preguntar «¿a qué municipio pertenece?»
+  for (const n of nucleos) if (nucleos.some((o) => o !== n && normalizar(o.nombre) === normalizar(n.nombre))) n.repetido = true
+  nucleos.sort((a, b) => a.municipio.localeCompare(b.municipio, 'es') || a.nombre.localeCompare(b.nombre, 'es'))
+}
+await guardar('nucleos.json', nucleos)
+
 // Informe del material de la persona (11-11-2026), para revisar si algo no cuadra
 const tabla = (cabecera, filas) => [`| ${cabecera.join(' | ')} |`, `| ${cabecera.map(() => '---').join(' | ')} |`, ...filas.map((f) => `| ${f.join(' | ')} |`)]
 const porParque = (lista) => contarValores(lista.map((x) => x.parque)).map(([p, n]) => `${p} ${n}`).join(', ')
@@ -1201,6 +1325,26 @@ const lineasMaterial = [
       red,
       unicos(carreteras.filter((c) => (c.properties.tipoRed ?? 'sin dato') === red).map((c) => c.properties.codigo)).sort((a, b) => a.localeCompare(b, 'es', { numeric: true })).join(', '),
     ]),
+  ),
+  '',
+  '## Núcleos de población de la zona',
+  '',
+  `${nucleos.length} núcleos (pueblos que no son el principal de su municipio, aldeas, barriadas y urbanizaciones) según OpenStreetMap; ${nucleos.filter((n) => n.repetido).length} con un nombre que se repite en otro municipio (no salen en las preguntas).`,
+  '',
+  ...tabla(
+    ['Municipio', 'Núcleos'],
+    unicos(nucleos.map((n) => n.municipio)).map((m) => [m, nucleos.filter((n) => n.municipio === m).map((n) => `${n.nombre} (${n.tipo})`).join(', ')]),
+  ),
+  '',
+  '## Calles sin salida para vehículos',
+  '',
+  `${calles.filter((c) => c.salida === 'sin').length} calles pequeñas sin salida para coches (un extremo al que no llega ninguna otra calle de coches), y ${calles.filter((c) => c.salida === 'con').length} con salida por los dos lados. Solo se miran calles de barrio sin tramos dudosos.`,
+  '',
+  '## Rumbo de las carreteras desde Granada',
+  '',
+  ...tabla(
+    ['Rumbo', 'Carreteras'],
+    RUMBOS.map((r) => [r, Object.keys(rumbos).filter((c) => rumbos[c] === r).join(', ')]).filter(([, c]) => c),
   ),
   '',
   '## Incorporaciones',
