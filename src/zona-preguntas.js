@@ -19,6 +19,7 @@ export const MODOS_ZONA = [
   { id: 'pasa', nombre: 'Qué carretera pasa por cada pueblo' },
   { id: 'hacia', nombre: 'Hacia qué localidad lleva cada carretera' },
   { id: 'rumbo', nombre: 'Dónde queda cada carretera desde Granada' },
+  { id: 'parque', nombre: 'Qué parque cubre cada pueblo y salida' },
   { id: 'mezcla', nombre: 'Todo mezclado' },
 ]
 
@@ -184,6 +185,12 @@ export function preguntasZona({ municipios, salidas, carreteras, poligonos = [],
       if (enParte(n.municipio) && porNombreZona.has(n.municipio)) lista.push({ id: `nucleo:${n.nombre}`, tipo: 'nucleo', nucleo: n, municipio: porNombreZona.get(n.municipio) })
     }
   }
+  if (quiero('parque')) {
+    for (const f of pueblos) if (f.properties.parque) lista.push({ id: `parque:${f.properties.nombre}`, tipo: 'parque', municipio: f })
+    for (const s of salidas.filter((x) => x.numero && x.parque && x.parqueSegun !== 'tiempo' && enParte(x.municipio))) {
+      lista.push({ id: `parque:${s.id}`, tipo: 'parque', salida: s })
+    }
+  }
   if (quiero('pasa')) {
     for (const f of pueblos) if (f.properties.carreteras.some((c) => redes[c] && !AUTOVIAS.test(c))) lista.push({ id: `pasa:${f.properties.nombre}`, tipo: 'pasa', municipio: f })
   }
@@ -226,6 +233,17 @@ export function prepararPregunta(p, { municipios, salidas, redes = {}, nucleos =
   }
   if (p.tipo === 'poligono') {
     return { enunciado: `¿En qué pueblo está el ${p.poligono.nombre}? Toca su término.`, contestar: 'tocar', respuesta: p.municipio.properties.nombre }
+  }
+  if (p.tipo === 'parque') {
+    const parque = p.municipio ? p.municipio.properties.parque : p.salida.parque
+    return {
+      enunciado: p.municipio
+        ? `Nos avisan de un incendio en el pueblo marcado en azul. ¿Qué parque de bomberos tiene la cobertura?`
+        : `Incendio de vehículo en la salida ${p.salida.numero} de la ${p.salida.carretera} (en azul). ¿Qué parque de bomberos tiene la cobertura?`,
+      contestar: 'elegir',
+      respuesta: `Parque ${parque}`,
+      opciones: OPCIONES_PARQUE.map((texto) => ({ texto, buena: texto === `Parque ${parque}` })),
+    }
   }
   if (p.tipo === 'nucleo') {
     return { enunciado: `¿En qué municipio está ${p.nucleo.nombre} (${p.nucleo.tipo})? Toca su término.`, contestar: 'tocar', respuesta: p.municipio.properties.nombre }
@@ -477,6 +495,65 @@ export function tarjetasZona({ municipios, salidas, poligonos = [], redes = {}, 
   const todas = []
   for (let i = 0; i < Math.max(...clases.map((c) => c.length)); i++) for (const c of clases) todas.push(c[i])
   return todas.filter(Boolean)
+}
+
+// «Nos encontramos con un incendio de vehículo en la glorieta de la salida 137 de la A-44: ¿qué parque de bomberos tiene
+// la cobertura del siniestro?» (2025). Cada pueblo es del parque que llega antes (lista confirmada por la persona el
+// 12-11-2026, `parque` en municipios.json); sus núcleos, polígonos y salidas de autovía, del mismo. Con las tres
+// respuestas del examen; van al mazo «parques».
+export const OPCIONES_PARQUE = ['Parque Sur', 'Parque Norte', 'Parque Norte o Sur según las indicaciones del jefe de dotación']
+const minutosDe = (m) => (m ? ` Desde el Parque Norte, ${String(m.Norte).replace('.', ',')} min; desde el Sur, ${String(m.Sur).replace('.', ',')} min.` : '')
+export function tarjetasParqueZona({ municipios, salidas = [], poligonos = [], nucleos = [] }) {
+  const pueblos = municipios.features.map((f) => f.properties).filter((m) => m.nombre !== 'Granada' && m.parque)
+  const parqueDe = new Map(pueblos.map((m) => [m.nombre, m]))
+  const tarjeta = (datos) =>
+    conOpciones({ mazo: 'parques', distrito: null, orden: OPCIONES_PARQUE, ...datos, buena: `Parque ${datos.parque}` })
+  const lista = []
+  for (const m of pueblos) {
+    lista.push(
+      tarjeta({
+        id: `parques:pueblo:${m.nombre}`,
+        enlace: `#/mapa?pueblo=${encodeURIComponent(m.nombre)}`,
+        pregunta: `Nos avisan de un incendio en ${m.nombre}. ¿Qué parque de bomberos tiene la cobertura?`,
+        parque: m.parque,
+        detalle: `${m.nombre} es del Parque ${m.parque}: es el que llega antes.${minutosDe(m.minutosParques)}`,
+      }),
+    )
+  }
+  for (const s of salidas.filter((x) => x.numero && x.parque && x.parqueSegun !== 'tiempo')) {
+    lista.push(
+      tarjeta({
+        id: `parques:salida:${s.id}`,
+        enlace: `#/mapa?salida=${encodeURIComponent(s.id)}`,
+        pregunta: `Incendio de vehículo en la salida ${s.numero} de la ${s.carretera}. ¿Qué parque de bomberos tiene la cobertura del siniestro?`,
+        parque: s.parque,
+        detalle: s.municipio === 'Granada' ? `Está en el término de Granada, en el lado del Parque ${s.parque}.` : `Está en el término de ${s.municipio}, que es del Parque ${s.parque}.`,
+      }),
+    )
+  }
+  for (const p of poligonosPreguntables(poligonos).filter((x) => x.parque && x.municipio !== 'Granada')) {
+    lista.push(
+      tarjeta({
+        id: `parques:poligono:${p.nombre}`,
+        enlace: p.punto ? `#/mapa?lugar=${p.id}` : `#/mapa?pueblo=${encodeURIComponent(p.municipio)}`,
+        pregunta: `Nos avisan de un accidente en el ${p.nombre}. ¿Qué parque de bomberos tiene la cobertura?`,
+        parque: p.parque,
+        detalle: `Está en ${p.municipio}, que es del Parque ${p.parque}.`,
+      }),
+    )
+  }
+  for (const n of nucleosPreguntables(nucleos).filter((x) => parqueDe.has(x.municipio))) {
+    lista.push(
+      tarjeta({
+        id: `parques:nucleo:${n.nombre}`,
+        enlace: `#/mapa?pueblo=${encodeURIComponent(n.municipio)}`,
+        pregunta: `Nos avisan de un incendio en ${n.nombre} (${n.municipio}). ¿Qué parque de bomberos tiene la cobertura?`,
+        parque: parqueDe.get(n.municipio).parque,
+        detalle: `${n.municipio} es del Parque ${parqueDe.get(n.municipio).parque}.`,
+      }),
+    )
+  }
+  return lista.filter(Boolean)
 }
 
 // Preguntas de la zona con la forma de las de los exámenes (2020, 2022 y 2025), con sus opciones escritas. Todas salen de

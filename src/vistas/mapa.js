@@ -444,6 +444,9 @@ export async function abrir(contenedor) {
     if (centrar) mapa.easeTo({ center: p.punto, zoom: Math.max(mapa.getZoom(), 14), padding: margen(), duration: 700 })
   }
 
+  // Minutos con una cifra decimal a la española ("8,2 min")
+  const minutos = (m) => (m == null ? '—' : `${String(m).replace('.', ',')} min`)
+
   // Zona de los parques de Granada (paso 2.5): fichas de pueblo, salida y carretera, enlazadas entre sí
   const chipPueblo = (nombre) =>
     municipioPorNombre.has(nombre)
@@ -489,6 +492,13 @@ export async function abrir(contenedor) {
       crear('p', { class: 'ficha-tipo' }, m.parte === 'Capital' ? 'Capital' : `Pueblo de la zona · ${m.parte}`),
       crear('h2', {}, m.nombre),
       m.pueblo && crear('p', { class: 'ficha-nota' }, `El pueblo principal es ${m.pueblo}.`),
+      m.parque &&
+        crear(
+          'dl',
+          { class: 'ficha-datos' },
+          dato('Parque de bomberos', textoParque(m.parque)),
+          m.minutosParques && dato('Tiempo', `Parque Norte, ${minutos(m.minutosParques.Norte)}; Parque Sur, ${minutos(m.minutosParques.Sur)}`),
+        ),
       m.acceso && [
         crear('h3', {}, 'Cómo se llega desde Granada'),
         m.acceso.pasos.length ? pasosAcceso(m.acceso.pasos) : crear('p', {}, 'Está pegado a Granada: se llega por calles.'),
@@ -543,6 +553,7 @@ export async function abrir(contenedor) {
         dato('Municipio', chipPueblo(s.municipio)),
         carteles.map((c) => dato(c.hacia ? `Carteles yendo hacia ${c.hacia}` : 'Carteles', c.destinos.join(', '))),
         s.carreterasDestino.length > 0 && dato('Lleva a', chipsDe(s.carreterasDestino, chipCarretera)),
+        s.parque && dato('Parque de bomberos', textoParque(s.parque)),
       ),
       !s.destinos.length && crear('p', { class: 'ficha-nota' }, 'OpenStreetMap no trae los carteles de esta salida.'),
       porAqui.length > 0 && [crear('h3', {}, 'Desde Granada se sale por aquí para ir a'), chipsDe(porAqui, chipPueblo)],

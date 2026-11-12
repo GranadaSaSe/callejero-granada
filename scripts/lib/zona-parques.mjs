@@ -73,3 +73,24 @@ export const PARTE_DE_MUNICIPIO = Object.fromEntries(
 
 // Rectángulo que cubre toda la zona con un poco de margen: sur, oeste, norte, este
 export const RECTANGULO_ZONA = '36.84,-4.08,37.44,-3.12'
+
+// Qué parque de bomberos atiende cada pueblo de la zona: el que tarda menos en llegar (tiemposDesdeParques en
+// scripts/lib/zona-datos.mjs). Calculado y confirmado por la persona el 12-11-2026. Los más ajustados: Huétor de
+// Santillán (Norte por 1,7 min) y Vegas del Genil (Sur por 0,7 min). Si un cálculo nuevo da otra cosa, manda esta
+// lista y el informe lo avisa.
+export const PARQUE_DE_PUEBLO = {
+  Norte: [
+    'Albolote', 'Alfacar', 'Atarfe', 'Beas de Granada', 'Calicasas', 'Chauchina', 'Chimeneas', 'Cijuela',
+    'Cogollos de la Vega', 'Fuente Vaqueros', 'Güevéjar', 'Huétor de Santillán', 'Íllora', 'Jun', 'Láchar',
+    'Maracena', 'Moclín', 'Nívar', 'Peligros', 'Pinos Puente', 'Pulianas', 'Santa Fe', 'Valderrubio', 'Víznar',
+  ],
+  Sur: [
+    'Albuñuelas', 'Alhendín', 'Armilla', 'Cájar', 'Cenes de la Vega', 'Churriana de la Vega', 'Cúllar Vega', 'Dílar',
+    'Dúdar', 'Dúrcal', 'El Valle', 'Escúzar', 'Gójar', 'Güéjar Sierra', 'Huétor Vega', 'La Malahá', 'La Zubia',
+    'Las Gabias', 'Lecrín', 'Monachil', 'Nigüelas', 'Ogíjares', 'Padul', 'Pinos Genil', 'Quéntar', 'Vegas del Genil',
+    'Villa de Otura', 'Villamena',
+  ],
+}
+export const PARQUE_DE_MUNICIPIO = Object.fromEntries(
+  Object.entries(PARQUE_DE_PUEBLO).flatMap(([parque, nombres]) => nombres.map((n) => [n, parque])),
+)

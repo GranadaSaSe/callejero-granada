@@ -49,8 +49,8 @@ import { incorporaciones } from './lib/incorporaciones.mjs'
 import { ladoDeParques, lineaEntreParques } from './lib/parques-datos.mjs'
 import { CALLES_LIMITE } from './lib/parques-limite.mjs'
 import { POLIGONOS } from './lib/poligonos.mjs'
-import { accesosDesdeGranada, codigos, municipiosDeLaZona, salidasDeLaZona, textoAcceso } from './lib/zona-datos.mjs'
-import { ZONA_PARQUES } from './lib/zona-parques.mjs'
+import { accesosDesdeGranada, codigos, municipiosDeLaZona, salidasDeLaZona, textoAcceso, tiemposDesdeParques } from './lib/zona-datos.mjs'
+import { PARQUE_DE_MUNICIPIO, ZONA_PARQUES } from './lib/zona-parques.mjs'
 
 const RAIZ = join(import.meta.dirname, '..')
 const CRUDOS = join(RAIZ, 'datos', 'crudos')
@@ -1152,13 +1152,31 @@ const listaCarreteras = (nombre) =>
 
 const salidas = salidasDeLaZona(carreterasOsm.elements, municipios)
 const accesos = accesosDesdeGranada(carreterasOsm.elements, municipios, salidas)
+// Qué parque de bomberos atiende cada pueblo (lista confirmada por la persona, PARQUE_DE_MUNICIPIO) y los minutos desde
+// cada parque (tiemposDesdeParques). Una salida de autovía es del parque de su pueblo; en el término de Granada, del
+// lado de la línea entre parques en que cae y, si eso es aproximado, del que llega antes.
+const puertasParques = [
+  { nombre: 'Norte', punto: lugares.find((l) => l.id === 'w124393197').punto },
+  { nombre: 'Sur', punto: lugares.find((l) => l.id === 'w51730864').punto },
+]
+const tiemposParques = tiemposDesdeParques(carreterasOsm.elements, municipios, salidas, puertasParques)
+const masRapido = (minutos) => (minutos?.Norte != null && minutos?.Sur != null ? (minutos.Norte <= minutos.Sur ? 'Norte' : 'Sur') : null)
+const parqueDeSalida = (s) => {
+  if (s.municipio !== 'Granada') return { parque: PARQUE_DE_MUNICIPIO[s.municipio] ?? null, segun: 'pueblo' }
+  if (!ladoParques.aproximado(s.punto)) return { parque: ladoParques.parque(s.punto), segun: 'línea' }
+  return { parque: masRapido(tiemposParques.salidas[s.id]), segun: 'tiempo' }
+}
 await guardar(
   'salidas.json',
-  salidas.map(({ nodos, sentidos, punto, ...s }) => ({
-    ...s,
-    sentidos: sentidos.map(({ nodo, ...x }) => x),
-    punto: redondear([punto])[0],
-  })),
+  salidas.map(({ nodos, sentidos, punto, ...s }) => {
+    const { parque, segun } = parqueDeSalida({ ...s, punto })
+    return {
+      ...s,
+      sentidos: sentidos.map(({ nodo, ...x }) => x),
+      punto: redondear([punto])[0],
+      ...(parque && { parque, parqueSegun: segun, minutosParques: tiemposParques.salidas[s.id] }),
+    }
+  }),
 )
 await guardar(
   'municipios.json',
@@ -1173,6 +1191,7 @@ await guardar(
         carreteras: listaCarreteras(m.nombre),
         centro: redondear([m.centro])[0],
         acceso: accesos[m.nombre] ?? null,
+        ...(m.nombre !== 'Granada' && { parque: PARQUE_DE_MUNICIPIO[m.nombre] ?? null, minutosParques: tiemposParques.pueblos[m.nombre] }),
       },
       geometry: poligono(m.zona, 20),
     })),
@@ -1209,6 +1228,7 @@ const poligonos = POLIGONOS.map((p, i) => {
     ...(e?.tags.name && e.tags.name !== p.nombre && { nombreOsm: e.tags.name }),
     ...(enOsm && enOsm !== p.municipio && { municipioOsm: enOsm }),
     ...(p.municipio === 'Granada' && punto && { ...zonaDe(punto), parque: ladoParques.parque(punto) }),
+    ...(p.municipio !== 'Granada' && PARQUE_DE_MUNICIPIO[p.municipio] && { parque: PARQUE_DE_MUNICIPIO[p.municipio] }),
     ...(p.dudoso && { dudoso: true }),
     ...(p.fuente && { fuente: p.fuente }),
   }
@@ -1254,7 +1274,15 @@ const nucleos = []
     if (!municipio || municipio === 'Granada' || principales.has(normalizar(t.name))) continue
     // El mismo sitio dos veces (punto y área): se queda el primero
     if (nucleos.some((n) => n.nombre === t.name && distancia(n.punto, punto) < 1500)) continue
-    nucleos.push({ nombre: t.name, tipo, municipio, punto: redondear([punto])[0], carreteras: cercanas(punto), osm: `${e.type[0]}${e.id}` })
+    nucleos.push({
+      nombre: t.name,
+      tipo,
+      municipio,
+      parque: PARQUE_DE_MUNICIPIO[municipio] ?? null,
+      punto: redondear([punto])[0],
+      carreteras: cercanas(punto),
+      osm: `${e.type[0]}${e.id}`,
+    })
   }
   // Un nombre que está en dos municipios no sirve para preguntar «¿a qué municipio pertenece?»
   for (const n of nucleos) if (nucleos.some((o) => o !== n && normalizar(o.nombre) === normalizar(n.nombre))) n.repetido = true
@@ -1285,6 +1313,26 @@ const lineasMaterial = [
       return [d, suyas.filter((c) => c.parque === 'Norte').length, suyas.filter((c) => c.parque === 'Sur').length, suyas.filter((c) => !['Norte', 'Sur'].includes(c.parque)).length]
     }),
   ),
+  '',
+  '## Parque de bomberos de cada pueblo',
+  '',
+  'El que tarda menos en llegar desde su puerta hasta el pueblo principal (calles a 20 km/h en línea recta, carreteras a su velocidad, sin tráfico). Lista confirmada por la persona el 12-11-2026 (`PARQUE_DE_PUEBLO` en `scripts/lib/zona-parques.mjs`); si el cálculo cambia, sale marcado.',
+  '',
+  ...tabla(
+    ['Parte', 'Pueblo', 'Minutos desde el Norte', 'Minutos desde el Sur', 'Parque'],
+    Object.entries(ZONA_PARQUES).flatMap(([parte, nombres]) =>
+      nombres
+        .filter((n) => n !== 'Granada')
+        .map((n) => {
+          const m = tiemposParques.pueblos[n] ?? {}
+          const calculado = masRapido(m)
+          const confirmado = PARQUE_DE_MUNICIPIO[n]
+          return [parte, n, m.Norte ?? '', m.Sur ?? '', calculado === confirmado ? confirmado : `**${confirmado} (el cálculo da ${calculado})**`]
+        }),
+    ),
+  ),
+  '',
+  `Salidas de autovía: ${salidas.filter((s) => parqueDeSalida(s).parque === 'Norte').length} del Parque Norte y ${salidas.filter((s) => parqueDeSalida(s).parque === 'Sur').length} del Sur (las de los pueblos, las de su pueblo; las del término de Granada, por la línea o, más allá de sus puntas, por el que llega antes).`,
   '',
   '## Polígonos industriales',
   '',

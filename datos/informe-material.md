@@ -21,6 +21,67 @@ Línea entre los dos parques: Camino de Camaura, Calle Méndez Núñez, Avenida 
 | Ronda | 74 | 165 | 9 |
 | Zaidín | 0 | 285 | 0 |
 
+## Parque de bomberos de cada pueblo
+
+El que tarda menos en llegar desde su puerta hasta el pueblo principal (calles a 20 km/h en línea recta, carreteras a su velocidad, sin tráfico). Lista confirmada por la persona el 12-11-2026 (`PARQUE_DE_PUEBLO` en `scripts/lib/zona-parques.mjs`); si el cálculo cambia, sale marcado.
+
+| Parte | Pueblo | Minutos desde el Norte | Minutos desde el Sur | Parque |
+| --- | --- | --- | --- | --- |
+| Norte | Albolote | 4.9 | 8.8 | Norte |
+| Norte | Alfacar | 7.7 | 10.3 | Norte |
+| Norte | Atarfe | 7.5 | 9.8 | Norte |
+| Norte | Calicasas | 9.4 | 13.3 | Norte |
+| Norte | Cogollos de la Vega | 12.5 | 16.6 | Norte |
+| Norte | Güevéjar | 7.2 | 11.3 | Norte |
+| Norte | Íllora | 24.3 | 26.9 | Norte |
+| Norte | Jun | 4.2 | 6.9 | Norte |
+| Norte | Maracena | 1.8 | 5.9 | Norte |
+| Norte | Moclín | 25.5 | 28 | Norte |
+| Norte | Nívar | 11.3 | 15.4 | Norte |
+| Norte | Peligros | 3.6 | 7.5 | Norte |
+| Norte | Pinos Puente | 10.9 | 13.4 | Norte |
+| Norte | Pulianas | 2.8 | 6.9 | Norte |
+| Norte | Valderrubio | 20 | 22.5 | Norte |
+| Norte | Víznar | 8.5 | 10.7 | Norte |
+| Este | Beas de Granada | 13.7 | 16.1 | Norte |
+| Este | Cenes de la Vega | 9.8 | 6.2 | Sur |
+| Este | Dúdar | 16.4 | 12.7 | Sur |
+| Este | Güéjar Sierra | 21.5 | 17.8 | Sur |
+| Este | Huétor de Santillán | 11.1 | 12.8 | Norte |
+| Este | Pinos Genil | 13.5 | 9.8 | Sur |
+| Este | Quéntar | 18.6 | 14.8 | Sur |
+| Sur | Alhendín | 9.6 | 6.9 | Sur |
+| Sur | Armilla | 7.3 | 3.8 | Sur |
+| Sur | Cájar | 9.5 | 5.1 | Sur |
+| Sur | Churriana de la Vega | 8.7 | 5.3 | Sur |
+| Sur | Cúllar Vega | 10.5 | 7.6 | Sur |
+| Sur | Dílar | 15.4 | 12.7 | Sur |
+| Sur | Gójar | 10.8 | 8 | Sur |
+| Sur | Huétor Vega | 8.6 | 4.2 | Sur |
+| Sur | La Zubia | 10.1 | 5.8 | Sur |
+| Sur | Las Gabias | 11 | 7.4 | Sur |
+| Sur | Monachil | 12.3 | 8 | Sur |
+| Sur | Ogíjares | 9 | 6.2 | Sur |
+| Sur | Vegas del Genil | 8.2 | 7.5 | Sur |
+| Sur | Villa de Otura | 10.6 | 7.9 | Sur |
+| Oeste | Chauchina | 12.2 | 14.3 | Norte |
+| Oeste | Chimeneas | 21.4 | 23.6 | Norte |
+| Oeste | Cijuela | 13.5 | 15.7 | Norte |
+| Oeste | Escúzar | 23.2 | 20.7 | Sur |
+| Oeste | Fuente Vaqueros | 15.3 | 17.5 | Norte |
+| Oeste | La Malahá | 17 | 14.3 | Sur |
+| Oeste | Láchar | 14.8 | 17 | Norte |
+| Oeste | Santa Fe | 8.4 | 10.6 | Norte |
+| Valle de Lecrín | Albuñuelas | 29.5 | 26.7 | Sur |
+| Valle de Lecrín | Dúrcal | 21.9 | 19.2 | Sur |
+| Valle de Lecrín | El Valle | 27.9 | 25.2 | Sur |
+| Valle de Lecrín | Lecrín | 22.2 | 19.5 | Sur |
+| Valle de Lecrín | Nigüelas | 22.7 | 20 | Sur |
+| Valle de Lecrín | Padul | 16.7 | 14 | Sur |
+| Valle de Lecrín | Villamena | 19.4 | 16.7 | Sur |
+
+Salidas de autovía: 48 del Parque Norte y 22 del Sur (las de los pueblos, las de su pueblo; las del término de Granada, por la línea o, más allá de sus puntas, por el que llega antes).
+
 ## Polígonos industriales
 
 52 polígonos; 30 situados con su polígono de OpenStreetMap, 13 en un punto aproximado y 9 sin situar.

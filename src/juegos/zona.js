@@ -27,6 +27,7 @@ const TIPO = {
   pasa: 'Carreteras · cuál pasa por el pueblo',
   hacia: 'Carreteras · hacia dónde llevan',
   rumbo: 'Carreteras · dónde quedan desde Granada',
+  parque: 'Parque de bomberos',
 }
 // items: { id: { bien, total, fallo } } (fallo = si la última vez se falló); récord por tipo de pregunta y parte
 const estado = leerEstado(CLAVE, { ajustes: { modo: 'mezcla', parte: 'Toda la zona' }, records: {}, items: {}, partidas: 0 })
@@ -160,6 +161,14 @@ async function partida(ctx, lista) {
       const dePartes = municipios.features.filter((f) => parte === 'Toda la zona' || f.properties.parte === parte)
       dibujar([])
       ctx.encuadrar((dePartes.length ? dePartes : municipios.features).flatMap(puntosMunicipio), { maxZoom: 12 })
+    } else if (p.tipo === 'parque') {
+      if (p.municipio) {
+        dibujar(figurasMunicipio(p.municipio, AZUL))
+        ctx.encuadrar([p.municipio, porNombre.get('Granada')].filter(Boolean).flatMap(puntosMunicipio), { maxZoom: 12 })
+      } else {
+        dibujar(figurasSalida(p.salida, AZUL))
+        ctx.encuadrar([p.salida.punto, ...puntosMunicipio(porNombre.get('Granada'))], { maxZoom: 12 })
+      }
     } else if (p.tipo === 'pasa') {
       dibujar(figurasMunicipio(p.municipio, AZUL))
       ctx.encuadrar([p.municipio, ...p.municipio.properties.vecinos.map((n) => porNombre.get(n))].filter(Boolean).flatMap(puntosMunicipio), { maxZoom: 13 })
@@ -233,6 +242,9 @@ async function partida(ctx, lista) {
       const equivocado = p.tipo === 'donde' ? tocado?.municipio : porNombre.get(dicho)
       if (!acierto && equivocado) conMunicipio(equivocado, ROJO)
       conMunicipio(p.municipio, VERDE)
+    } else if (p.tipo === 'parque') {
+      if (p.municipio) conMunicipio(p.municipio, VERDE)
+      else conSalida(p.salida, VERDE)
     } else if (p.tipo === 'nucleo') {
       if (!acierto && tocado?.municipio) conMunicipio(tocado.municipio, ROJO)
       conMunicipio(p.municipio, VERDE)
@@ -303,6 +315,11 @@ async function partida(ctx, lista) {
         .join(' ')
     }
     if (p.tipo === 'red') return `La ${p.codigo} es de la ${redes[p.codigo]}.`
+    if (p.tipo === 'parque') {
+      if (p.salida) return p.salida.municipio === 'Granada' ? `Está en Granada, en el lado del Parque ${p.salida.parque}.` : `Está en el término de ${p.salida.municipio}, del Parque ${p.salida.parque}.`
+      const m = p.municipio.properties
+      return `${m.nombre} es del Parque ${m.parque}, el que llega antes${m.minutosParques ? ` (Norte, ${String(m.minutosParques.Norte).replace('.', ',')} min; Sur, ${String(m.minutosParques.Sur).replace('.', ',')} min)` : ''}.`
+    }
     if (p.tipo === 'nucleo') return `${p.nucleo.nombre} está en ${p.nucleo.municipio}${p.nucleo.carreteras.length ? `, junto a la ${p.nucleo.carreteras.join(', ')}` : ''}.`
     if (p.tipo === 'pasa') return `Por ${p.municipio.properties.nombre} pasan: ${p.municipio.properties.carreteras.join(', ')}.`
     if (p.tipo === 'rumbo') return `La ${p.codigo} queda al ${rumbos[p.codigo]} de Granada.`
@@ -318,7 +335,9 @@ async function partida(ctx, lista) {
 
   // Ficha del Mapa de lo que se pregunta
   const enlace = (x = p) =>
-    x.tipo === 'pasa' || x.tipo === 'nucleo'
+    x.tipo === 'parque' && x.salida
+      ? `#/mapa?salida=${encodeURIComponent(x.salida.id)}`
+      : x.tipo === 'pasa' || x.tipo === 'nucleo' || x.tipo === 'parque'
       ? `#/mapa?pueblo=${encodeURIComponent(x.municipio.properties.nombre)}`
       : x.poligono?.punto
       ? `#/mapa?lugar=${x.poligono.id}`

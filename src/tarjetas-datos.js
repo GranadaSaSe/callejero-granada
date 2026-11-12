@@ -6,7 +6,7 @@
 // momento, así que si se corrige un dato la tarjeta muestra ya la respuesta corregida.
 // Este archivo no usa nada del navegador, así que se puede probar con Node.
 import { nombreLlevaLaCalle, tarjetasDeExamen } from './preguntas-examen.js'
-import { tarjetasZona } from './zona-preguntas.js'
+import { tarjetasParqueZona, tarjetasZona } from './zona-preguntas.js'
 
 export { nombreLlevaLaCalle }
 
@@ -202,11 +202,12 @@ export function crearTarjetas({ calles, lugares, ejes, zona = null, altos = [] }
       datos: { falsas: falsasDistritoParque(l.distrito, l.parque, []) },
     })
   }
-  // Las calles y los lugares, intercalados (si no, salen primero cientos de calles)
+  // Las calles, los lugares y los pueblos de la zona, intercalados (si no, salen primero cientos de calles)
   const callesParque = mazos.parques.filter((t) => t.id.startsWith('parques:c:'))
   const lugaresParque = mazos.parques.filter((t) => t.id.startsWith('parques:l:'))
+  const zonaParque = zona ? tarjetasParqueZona(zona) : []
   mazos.parques = []
-  for (let i = 0; i < Math.max(callesParque.length, lugaresParque.length); i++) mazos.parques.push(callesParque[i], lugaresParque[i])
+  for (let i = 0; i < Math.max(callesParque.length, lugaresParque.length, zonaParque.length); i++) mazos.parques.push(callesParque[i], lugaresParque[i], zonaParque[i])
   mazos.parques = mazos.parques.filter(Boolean)
 
   // Edificios singulares: «¿qué edificio singular está en la calle X?» (si en esa calle solo hay uno)
