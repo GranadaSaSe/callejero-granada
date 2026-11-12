@@ -229,7 +229,9 @@ function crearCola() {
   }
 }
 
-export function accesosDesdeGranada(elementos, municipios, salidas) {
+// La red de carreteras (y calles grandes) de OpenStreetMap para calcular caminos: puntos, tramos con sus segundos y
+// atajos por calles entre carreteras que pasan cerca
+function redDeCarreteras(elementos) {
   const caminos = elementos.filter((e) => e.type === 'way')
   const posicion = new Map()
   const viasDeNodo = new Map() // nodo → vías que pasan por él
@@ -290,15 +292,16 @@ export function accesosDesdeGranada(elementos, municipios, salidas) {
       }
     }
   }
+  return { posicion, aristas, deCalle }
+}
 
-  // Camino más rápido desde el centro de Granada: se sale por calles a cualquier carretera del término
-  const granada = municipios.find((m) => m.nombre === 'Granada')
+// Camino más rápido (en segundos) desde unos puntos de salida: [[nodo, segundos], ...]
+function tiemposDesde({ aristas }, salidas) {
   const tiempo = new Map()
   const anterior = new Map()
   const cola = crearCola()
-  for (const [n, p] of posicion) {
-    if (!deCalle(n) || !granada.zona.contiene(p)) continue
-    const t = segundosPorCalles(distancia(CENTRO_GRANADA, p))
+  for (const [n, t] of salidas) {
+    if (t >= (tiempo.get(n) ?? Infinity)) continue
     tiempo.set(n, t)
     cola.meter(t, n)
   }
@@ -313,6 +316,61 @@ export function accesosDesdeGranada(elementos, municipios, salidas) {
       }
     }
   }
+  return { tiempo, anterior }
+}
+
+// Segundos hasta un punto: el punto de la red desde el que antes se llega, más las calles del final en línea recta
+function llegadaA(red, { tiempo }, punto, maximo = LLEGADA_M) {
+  let llegada = null
+  for (const [n, p] of red.posicion) {
+    if (!tiempo.has(n) || !red.deCalle(n)) continue
+    const d = distancia(p, punto)
+    if (d > maximo) continue
+    const total = tiempo.get(n) + segundosPorCalles(d)
+    if (!llegada || total < llegada.total) llegada = { n, total }
+  }
+  return llegada
+}
+
+// Qué parque de bomberos llega antes a cada pueblo y a cada salida de autovía (pedido por la persona el 12-11-2026:
+// «cada pueblo es atendido por el parque que tarda menos en llegar»). Se sale de la puerta de cada parque por calles
+// (en línea recta a 20 km/h) hasta las carreteras y calles grandes de alrededor, y se sigue por la red como en
+// accesosDesdeGranada. `parques`: [{ nombre, punto }]. Devuelve { pueblos: { Nombre: { Norte: min, Sur: min } },
+// salidas: { id: {...} } } con los minutos con un decimal.
+export function tiemposDesdeParques(elementos, municipios, salidas, parques) {
+  const red = redDeCarreteras(elementos)
+  const desde = parques.map((parque) => {
+    const inicio = []
+    for (const [n, p] of red.posicion) {
+      if (!red.deCalle(n)) continue
+      const d = distancia(p, parque.punto)
+      if (d <= 1500) inicio.push([n, segundosPorCalles(d)])
+    }
+    return { parque, caminos: tiemposDesde(red, inicio) }
+  })
+  const minutos = (punto, maximo) =>
+    Object.fromEntries(
+      desde.map(({ parque, caminos }) => {
+        const llegada = llegadaA(red, caminos, punto, maximo)
+        return [parque.nombre, llegada ? Math.round(llegada.total / 6) / 10 : null]
+      }),
+    )
+  return {
+    pueblos: Object.fromEntries(municipios.filter((m) => m.nombre !== 'Granada').map((m) => [m.nombre, minutos(m.centro)])),
+    salidas: Object.fromEntries(salidas.map((s) => [s.id, minutos(s.punto, 300)])),
+  }
+}
+
+export function accesosDesdeGranada(elementos, municipios, salidas) {
+  const red = redDeCarreteras(elementos)
+  const { posicion, deCalle } = red
+  // Camino más rápido desde el centro de Granada: se sale por calles a cualquier carretera del término
+  const granada = municipios.find((m) => m.nombre === 'Granada')
+  const inicio = []
+  for (const [n, p] of posicion) {
+    if (deCalle(n) && granada.zona.contiene(p)) inicio.push([n, segundosPorCalles(distancia(CENTRO_GRANADA, p))])
+  }
+  const { tiempo, anterior } = tiemposDesde(red, inicio)
 
   const salidaDeNodo = new Map(salidas.flatMap((s) => s.nodos.map((n) => [n, s])))
   // Kilómetro aproximado de un punto de una autovía: el número de la salida más cercana
@@ -326,14 +384,7 @@ export function accesosDesdeGranada(elementos, municipios, salidas) {
   for (const m of municipios) {
     if (m.nombre === 'Granada') continue
     // Llegada: el punto de la red desde el que antes se llega al pueblo (contando las calles del final)
-    let llegada = null
-    for (const [n, p] of posicion) {
-      if (!tiempo.has(n) || !deCalle(n)) continue
-      const d = distancia(p, m.centro)
-      if (d > LLEGADA_M) continue
-      const total = tiempo.get(n) + segundosPorCalles(d)
-      if (!llegada || total < llegada.total) llegada = { n, total }
-    }
+    const llegada = llegadaA(red, { tiempo }, m.centro)
     if (!llegada) {
       accesos[m.nombre] = null
       continue
