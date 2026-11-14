@@ -1,6 +1,7 @@
 // Tu progreso (paso 1.10): cuenta atrás hasta el examen, racha de días seguidos estudiando y aciertos
-// por tema; y, por zonas (paso 2.6), cuántas calles de cada distrito dominas y el enlace al mapa de tus
-// fallos. Todo sale de lo guardado en este dispositivo (ver src/actividad.js y src/progreso-zonas.js).
+// por tema; por zonas (paso 2.6), cuántas calles de cada distrito dominas y el enlace al mapa de tus
+// fallos; y (paso 4.4) el plan de hoy, la evolución de la nota y lo que más cuesta. Todo sale de lo guardado
+// en este dispositivo (ver src/actividad.js, src/progreso-zonas.js y src/estadisticas.js).
 import {
   aciertosPorTema,
   diasHasta,
@@ -17,8 +18,9 @@ import {
 import { crear, miles, rellenar } from '../crear.js'
 import { cargar } from '../datos.js'
 import { CLAVES_EJES, ejesActuales, leerConjunto } from '../ejes-lista.js'
+import { planDeHoy, resumenDeNotas, serieDeNotas, temasFlojos } from '../estadisticas.js'
 import { NIVELES, TEMAS } from '../examen-datos.js'
-import { leerGuardado, progresoPorZonas } from '../progreso-zonas.js'
+import { fallosEnElMapa, leerGuardado, progresoPorZonas } from '../progreso-zonas.js'
 import { aprendida } from '../repaso.js'
 import { crearTarjetas } from '../tarjetas-datos.js'
 
@@ -54,6 +56,90 @@ function nivelDelDia(dia) {
 
 const cifra = (numero, texto) => crear('div', { class: 'cifra' }, crear('strong', {}, numero), crear('span', {}, texto))
 
+// Elementos SVG (crear() hace elementos HTML, que dentro de un <svg> no se dibujan)
+function svg(etiqueta, atributos = {}, ...hijos) {
+  const elemento = document.createElementNS('http://www.w3.org/2000/svg', etiqueta)
+  for (const [nombre, valor] of Object.entries(atributos)) {
+    if (valor == null || valor === false) continue
+    if (nombre.startsWith('on')) elemento.addEventListener(nombre.slice(2), valor)
+    else elemento.setAttribute(nombre, valor)
+  }
+  for (const hijo of hijos.flat(Infinity)) if (hijo != null && hijo !== false) elemento.append(hijo instanceof Node ? hijo : String(hijo))
+  return elemento
+}
+
+const fechaCorta = (iso) => new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
+
+// Evolución de la nota (paso 4.4): una línea con un punto por test, de 0 a 10. Al pasar el dedo o el ratón por un
+// punto se ve su fecha y su nota. Una sola serie: el título de la tarjeta dice cuál es.
+function graficaNotas(serie, nombre) {
+  const ANCHO = 400
+  const ALTO = 190
+  const izquierda = 30
+  const derecha = 14
+  const arriba = 12
+  const abajo = 26
+  const x = (i) => (serie.length === 1 ? (izquierda + ANCHO - derecha) / 2 : izquierda + (i * (ANCHO - izquierda - derecha)) / (serie.length - 1))
+  const y = (nota) => arriba + ((10 - Math.max(0, Math.min(10, nota))) * (ALTO - arriba - abajo)) / 10
+  const aviso = crear('div', { class: 'grafica-aviso', hidden: true })
+  const guia = svg('line', { class: 'grafica-guia', y1: arriba, y2: ALTO - abajo, visibility: 'hidden' })
+  function senalar(i) {
+    const s = serie[i]
+    guia.setAttribute('x1', x(i))
+    guia.setAttribute('x2', x(i))
+    guia.setAttribute('visibility', 'visible')
+    rellenar(
+      aviso,
+      crear('strong', {}, `${nota(s.nota)}`),
+      ` · ${fechaLarga(textoDia(new Date(s.fecha)), true)}`,
+      s.total ? crear('small', {}, `${s.aciertos} bien, ${s.fallos} mal, ${s.enBlanco} en blanco${s.simulacro ? ' · simulacro' : ''}`) : null,
+    )
+    aviso.hidden = false
+    // Encima del punto, sin salirse por los lados de la gráfica
+    const anchoGrafica = aviso.parentElement.offsetWidth
+    const mitad = aviso.offsetWidth / 2
+    const centro = (anchoGrafica * x(i)) / ANCHO
+    aviso.style.left = `${Math.min(anchoGrafica - mitad, Math.max(mitad, centro))}px`
+    aviso.style.top = `${(100 * y(s.nota)) / ALTO}%`
+  }
+  const ocultar = () => {
+    aviso.hidden = true
+    guia.setAttribute('visibility', 'hidden')
+  }
+  const camino = serie.map((s, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(s.nota).toFixed(1)}`).join(' ')
+  const dibujo = svg(
+    'svg',
+    { viewBox: `0 0 ${ANCHO} ${ALTO}`, class: 'grafica-notas', role: 'img', 'aria-label': `${nombre}: ${serie.map((s) => nota(s.nota)).join(', ')}` },
+    // Rejilla suave en 0, 5 y 10
+    [0, 5, 10].map((v) => [
+      svg('line', { class: 'grafica-rejilla', x1: izquierda, x2: ANCHO - derecha, y1: y(v), y2: y(v) }),
+      svg('text', { class: 'grafica-eje', x: izquierda - 8, y: y(v) + 4, 'text-anchor': 'end' }, String(v)),
+    ]),
+    svg('text', { class: 'grafica-eje', x: x(0), y: ALTO - 6, 'text-anchor': serie.length === 1 ? 'middle' : 'start' }, fechaCorta(serie[0].fecha)),
+    serie.length > 1 && svg('text', { class: 'grafica-eje', x: x(serie.length - 1), y: ALTO - 6, 'text-anchor': 'end' }, fechaCorta(serie.at(-1).fecha)),
+    guia,
+    serie.length > 1 && svg('path', { class: 'grafica-linea', d: camino }),
+    serie.map((s, i) => svg('circle', { class: 'grafica-punto', cx: x(i), cy: y(s.nota), r: 4 })),
+    // Zonas para tocar, más grandes que los puntos
+    serie.map((s, i) =>
+      svg('circle', {
+        class: 'grafica-toque',
+        cx: x(i),
+        cy: y(s.nota),
+        r: 14,
+        tabindex: 0,
+        'aria-label': `${fechaLarga(textoDia(new Date(s.fecha)), true)}: ${nota(s.nota)}`,
+        onpointerenter: () => senalar(i),
+        onfocus: () => senalar(i),
+        onclick: () => senalar(i),
+        onblur: ocultar,
+      }),
+    ),
+  )
+  dibujo.addEventListener('pointerleave', ocultar)
+  return crear('div', { class: 'grafica' }, dibujo, aviso)
+}
+
 export async function abrir(contenedor) {
   const pagina = crear('div', { class: 'pagina' }, crear('p', { class: 'cargando-texto' }, 'Calculando tu progreso…'))
   contenedor.append(pagina)
@@ -66,6 +152,7 @@ export async function abrir(contenedor) {
   let nivelZonas = 'medio' // qué calles cuentan en «Por zonas»
   let editandoFecha = false
   let diaElegido = null
+  let serieNotas = 'simulacros' // la evolución de la nota: de los simulacros o de todos los tests
   let mazos = {} // todas las tarjetas, por mazo (se rehacen al abrir: los ejes pueden haber cambiado)
 
   function cuentaAtras() {
@@ -329,6 +416,188 @@ export async function abrir(contenedor) {
     )
   }
 
+  // Plan de hoy (paso 4.4): qué hacer hoy según lo que toca repasar, lo que falta por ver, el tema más flojo, el
+  // distrito que menos dominas y cuándo fue el último simulacro. Lo hecho hoy se marca solo.
+  function tarjetaPlan(dias, estados, zonas) {
+    const ahora = Date.now()
+    const tocan = Object.values(mazos)
+      .flat()
+      .filter((t) => estados[t.id] && estados[t.id].proxima <= ahora).length
+    const total = zonas.distritos.reduce((s, d) => s + d.total, 0)
+    const sinVer = total - zonas.distritos.reduce((s, d) => s + d.vistas, 0)
+    // El distrito que menos dominas; si hay empate (al empezar, todos a 0 %), uno distinto cada día
+    const numeroDelDia = Math.floor(fechaDeDia(textoDia(new Date())).getTime() / 86_400_000)
+    const conPorcentaje = zonas.distritos.filter((d) => d.total > 0).map((d) => ({ nombre: d.nombre, porcentaje: porcentaje(d.dominadas, d.total) }))
+    const minimo = Math.min(...conPorcentaje.map((d) => d.porcentaje))
+    const empatados = conPorcentaje.filter((d) => d.porcentaje === minimo)
+    const floja = empatados[numeroDelDia % empatados.length]
+    const plan = planDeHoy({
+      dias,
+      historial: leer('callejero-examen-historial', []),
+      fechaExamen: leerFechaExamen().fecha,
+      tarjetas: { tocan },
+      calles: { sinVer, total },
+      zonaFloja: floja && floja.porcentaje < 90 ? floja : null,
+    })
+    const hechos = plan.filter((p) => p.hecho).length
+    return crear(
+      'section',
+      { class: 'tarjeta' },
+      crear('h2', {}, 'Plan de hoy'),
+      crear('p', { class: 'ficha-nota' }, `${fechaLarga(textoDia(new Date()))} · ${hechos} de ${plan.length} hechos. Se rehace cada día con lo que llevas.`),
+      crear(
+        'ul',
+        { class: 'plan-dia' },
+        plan.map((p) =>
+          crear(
+            'li',
+            { class: p.hecho ? 'hecho-plan' : '' },
+            crear('span', { class: 'marca-plan', 'aria-label': p.hecho ? 'Hecho' : 'Por hacer' }, p.hecho ? '✔' : ''),
+            crear('div', {}, crear('strong', {}, p.texto), crear('small', {}, p.detalle)),
+            !p.hecho && crear('a', { class: 'chip', href: p.enlace }, 'Ir'),
+          ),
+        ),
+      ),
+    )
+  }
+
+  // Evolución de la nota (paso 4.4), en los simulacros o en todos los tests
+  function tarjetaEvolucion() {
+    const historial = leer('callejero-examen-historial', [])
+    const simulacros = serieDeNotas(historial)
+    const todos = serieDeNotas(historial, { soloSimulacros: false })
+    if (serieNotas === 'simulacros' && !simulacros.length && todos.length) serieNotas = 'todos'
+    const serie = serieNotas === 'simulacros' ? simulacros : todos
+    const resumen = resumenDeNotas(serie)
+    const nombre = serieNotas === 'simulacros' ? 'Nota de los simulacros' : 'Nota de todos los tests'
+    const tendencia =
+      resumen?.mediaAnterior == null
+        ? null
+        : resumen.media - resumen.mediaAnterior >= 0.25
+          ? `Va subiendo: ${nota(resumen.media)} de media en los 5 últimos, frente a ${nota(resumen.mediaAnterior)} en los 5 anteriores.`
+          : resumen.mediaAnterior - resumen.media >= 0.25
+            ? `Ha bajado un poco: ${nota(resumen.media)} de media en los 5 últimos, frente a ${nota(resumen.mediaAnterior)} en los 5 anteriores.`
+            : `Se mantiene: ${nota(resumen.media)} de media en los 5 últimos.`
+    return crear(
+      'section',
+      { class: 'tarjeta' },
+      crear('h2', {}, 'Evolución de tu nota'),
+      crear(
+        'div',
+        { class: 'chips filtro-periodo' },
+        [
+          ['simulacros', `Simulacros (${simulacros.length})`],
+          ['todos', `Todos los tests (${todos.length})`],
+        ].map(([id, texto]) =>
+          crear(
+            'button',
+            {
+              class: 'chip',
+              'aria-pressed': String(id === serieNotas),
+              onclick: () => {
+                serieNotas = id
+                pintar()
+              },
+            },
+            texto,
+          ),
+        ),
+      ),
+      !serie.length
+        ? crear(
+            'p',
+            { class: 'ficha-nota' },
+            serieNotas === 'simulacros'
+              ? 'Aún no has hecho ningún simulacro. Haz uno en la pestaña Test y aquí verás cómo evoluciona tu nota.'
+              : 'Aún no has hecho ningún test.',
+          )
+        : [
+            crear(
+              'div',
+              { class: 'cifras' },
+              cifra(nota(resumen.ultima), 'la última'),
+              cifra(nota(resumen.media), serie.length > 5 ? 'media de las 5 últimas' : 'de media'),
+              cifra(nota(resumen.mejor), 'la mejor'),
+            ),
+            graficaNotas(serie, nombre),
+            crear('p', { class: 'ficha-nota' }, tendencia ?? (serie.length === 1 ? 'Con dos o más se verá cómo evoluciona.' : 'Toca un punto para ver su fecha y su nota.')),
+            crear(
+              'details',
+              { class: 'tabla-notas' },
+              crear('summary', {}, 'Ver como tabla'),
+              crear(
+                'table',
+                {},
+                crear('thead', {}, crear('tr', {}, ['Fecha', 'Nota', 'Bien', 'Mal', 'En blanco'].map((t) => crear('th', {}, t)))),
+                crear(
+                  'tbody',
+                  {},
+                  [...serie].reverse().map((s) =>
+                    crear(
+                      'tr',
+                      {},
+                      crear('td', {}, fechaLarga(textoDia(new Date(s.fecha)), true)),
+                      crear('td', {}, nota(s.nota)),
+                      crear('td', {}, s.aciertos ?? '—'),
+                      crear('td', {}, s.fallos ?? '—'),
+                      crear('td', {}, s.enBlanco ?? '—'),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+    )
+  }
+
+  // Lo que más te cuesta (paso 4.4): los temas con menos aciertos y las calles, lugares y pueblos que más fallas
+  function tarjetaCuesta(dias, guardado) {
+    const { conDatos } = temasFlojos(dias)
+    const flojos = conDatos.filter((t) => t.porcentaje < 85).slice(0, 3)
+    const enlaceDe = ({ tipo, id }) =>
+      ({ c: `#/calles?id=${id}`, l: `#/mapa?lugar=${id}`, p: `#/mapa?pueblo=${encodeURIComponent(id)}`, s: `#/mapa?salida=${encodeURIComponent(id)}` })[tipo] ?? '#/mapa?fallos=1'
+    const fallados = fallosEnElMapa({ calles, lugares, tramos, municipios, salidas }, guardado)
+      .sitios.features.map((f) => f.properties)
+      .sort((a, b) => b.fallos - a.fallos)
+      .slice(0, 6)
+    return crear(
+      'section',
+      { class: 'tarjeta' },
+      crear('h2', {}, 'Lo que más te cuesta'),
+      crear('h3', {}, 'Temas flojos (últimos 30 días)'),
+      flojos.length
+        ? crear(
+            'ul',
+            { class: 'lista-temas' },
+            flojos.map((t) =>
+              crear(
+                'li',
+                { class: 'fila-tema' },
+                crear('div', { class: 'fila-tema-cabecera' }, crear('strong', {}, t.nombre), crear('span', {}, `${t.porcentaje} % · ${plural(t.total, 'pregunta', 'preguntas')}`)),
+                crear('div', { class: 'barra-tema', role: 'img', 'aria-label': `${t.porcentaje} % de aciertos` }, t.bien > 0 && crear('div', { style: `width: ${t.porcentaje}%` })),
+                crear('a', { class: 'chip', href: `#/test?tema=${t.id}` }, 'Practicar en el Test'),
+              ),
+            ),
+          )
+        : crear(
+            'p',
+            { class: 'ficha-nota' },
+            conDatos.length
+              ? 'Ningún tema baja del 85 % de aciertos. ¡Muy bien!'
+              : `Cuando contestes al menos ${MINIMO_PARA_FLOJO} preguntas de un tema, aquí verás si es de los flojos.`,
+          ),
+      crear('h3', {}, 'Lo que más fallas'),
+      fallados.length
+        ? crear(
+            'ul',
+            { class: 'lista-fallados' },
+            fallados.map((f) => crear('li', {}, crear('a', { href: enlaceDe(f) }, f.nombre), crear('span', {}, plural(f.fallos, 'fallo', 'fallos')))),
+          )
+        : crear('p', { class: 'ficha-nota' }, 'Aún no has fallado nada en las tarjetas, el test ni los juegos.'),
+      fallados.length > 0 && crear('a', { class: 'boton secundario', href: '#/mapa?fallos=1' }, 'Ver todos mis fallos en el mapa'),
+    )
+  }
+
   function tarjetaResumen(estados) {
     const historial = leer('callejero-examen-historial', [])
     const mejorNota = historial.length ? Math.max(...historial.map((t) => t.nota)) : null
@@ -360,13 +629,18 @@ export async function abrir(contenedor) {
   function pintar() {
     const { dias } = leerActividad()
     const estados = leer('callejero-tarjetas', {})
+    const guardado = leerGuardado()
+    const zonas = progresoPorZonas({ calles, lugares, tramos, municipios, salidas }, guardado, { nivel: 'medio' })
     rellenar(
       pagina,
       crear('a', { class: 'enlace-discreto volver', href: '#/inicio' }, '← Inicio'),
       crear('h1', {}, 'Tu progreso'),
       crear('p', { class: 'intro' }, 'Con lo que has estudiado en este dispositivo.'),
       cuentaAtras(),
+      tarjetaPlan(dias, estados, zonas),
       tarjetaRacha(dias),
+      tarjetaEvolucion(),
+      tarjetaCuesta(dias, guardado),
       tarjetaTemas(dias, estados),
       tarjetaZonas(),
       tarjetaResumen(estados),

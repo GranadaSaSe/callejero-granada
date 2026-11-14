@@ -6,6 +6,7 @@
 import { LngLatBounds } from 'maplibre-gl'
 import { crear, normalizar } from '../crear.js'
 import { cargar, GRUPOS, grupoDe, textoParque } from '../datos.js'
+import { cargarFotos, visorFotos } from '../fotos.js'
 import {
   alCambiarNotas,
   anadirNota,
@@ -88,6 +89,8 @@ export async function abrir(contenedor) {
     aviso.textContent = `No se han podido cargar los datos del mapa. Abre la app una vez con internet. (${error.message})`
     return {}
   }
+  // Fotos de los lugares (paso 4.2); si aún no hay, la ficha sale sin foto
+  const fotos = (await cargarFotos()).lugares
   // Edificios de gran altura (Catastro) y polígonos industriales de la zona: en el mapa van como lugares
   lugares = [
     ...lugares,
@@ -398,6 +401,8 @@ export async function abrir(contenedor) {
       crear('p', { class: 'ficha-tipo' }, [l.categoria, l.distrito].join(' · ')),
       crear('h2', {}, l.nombre),
       l.nombreOsm && crear('p', { class: 'ficha-nota' }, `También: ${l.nombreOsm}`),
+      // Paso 4.2: las fotos revisadas por la persona (fuera de aquí, solo salen en el juego «Fotos»)
+      fotos[l.id] && visorFotos(fotos[l.id], { alt: `Foto de ${l.nombre}` }),
       crear(
         'dl',
         { class: 'ficha-datos' },

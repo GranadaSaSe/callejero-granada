@@ -1990,3 +1990,371 @@ div.opcion-trayecto {
   font: inherit;
   font-size: 16px;
 }
+
+/* Fotos de los lugares (paso 4.2): en la ficha del mapa y en el juego «Fotos» */
+
+.foto-lugar {
+  margin: 10px 0 8px;
+}
+
+.foto-boton {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--borde);
+  cursor: zoom-in;
+}
+
+.foto-boton img {
+  display: block;
+  width: 100%;
+  height: 190px;
+  object-fit: cover;
+}
+
+.foto-sin-internet {
+  display: none;
+  margin: 0;
+  padding: 18px 12px;
+  border-radius: 12px;
+  background: var(--fondo);
+  color: var(--texto-suave);
+  font-size: 14px;
+  text-align: center;
+}
+
+.foto-lugar.sin-foto .foto-boton {
+  display: none;
+}
+
+.foto-lugar.sin-foto .foto-sin-internet {
+  display: block;
+}
+
+.foto-pasar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 6px;
+}
+
+.foto-pasar button {
+  width: 40px;
+  height: 32px;
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+  background: var(--tarjeta);
+  color: var(--texto);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.contador-foto {
+  color: var(--texto-suave);
+  font-size: 13px;
+}
+
+.credito-foto {
+  margin: 4px 0 0;
+  color: var(--texto-suave);
+  font-size: 12px;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.credito-foto a {
+  color: inherit;
+}
+
+/* En el juego la foto va en el panel de arriba; al tocar el mapa, más pequeña para que se vea el mapa */
+.foto-juego {
+  margin: 8px 0 0;
+}
+
+.foto-juego .foto-boton img {
+  height: min(32vh, 280px);
+  height: min(32dvh, 280px);
+}
+
+.foto-juego.pequena .foto-boton img {
+  height: min(20vh, 170px);
+  height: min(20dvh, 170px);
+}
+
+.foto-juego .foto-pasar {
+  margin-top: 4px;
+}
+
+.foto-juego .foto-pasar button {
+  height: 28px;
+}
+
+/* La foto en grande, a pantalla completa */
+.ventana-foto {
+  width: 100vw;
+  max-width: none;
+  height: 100vh;
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  padding: 12px;
+  border: 0;
+  background: #000;
+  color: #eee;
+}
+
+.ventana-foto[open] {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.ventana-foto::backdrop {
+  background: #000;
+}
+
+.ventana-foto img {
+  max-width: 100%;
+  max-height: calc(100% - 90px);
+  object-fit: contain;
+  cursor: zoom-out;
+}
+
+.ventana-foto .cerrar {
+  position: absolute;
+  top: max(12px, env(safe-area-inset-top));
+  right: 12px;
+  float: none;
+  margin: 0;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+
+.ventana-foto .foto-pasar button {
+  border-color: #555;
+  background: #222;
+  color: #fff;
+}
+
+.ventana-foto .credito-foto {
+  color: #bbb;
+  text-align: center;
+}
+
+/* Tu progreso (paso 4.4): plan de hoy, evolución de la nota y lo que más cuesta */
+
+.plan-dia {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.plan-dia li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 1px solid var(--borde);
+}
+
+.plan-dia li div {
+  flex: 1;
+  min-width: 0;
+}
+
+.plan-dia strong {
+  display: block;
+  line-height: 1.3;
+}
+
+.plan-dia small {
+  display: block;
+  margin-top: 2px;
+  color: var(--texto-suave);
+  line-height: 1.35;
+}
+
+.plan-dia .chip {
+  flex: none;
+}
+
+.marca-plan {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin-top: 1px;
+  border: 2px solid var(--borde);
+  border-radius: 50%;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.hecho-plan .marca-plan {
+  border-color: var(--verde);
+  background: var(--verde);
+}
+
+.hecho-plan strong {
+  color: var(--texto-suave);
+}
+
+.grafica {
+  position: relative;
+  max-width: 520px;
+  margin: 12px auto 4px;
+}
+
+.grafica-notas {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.grafica-rejilla {
+  stroke: var(--borde);
+  stroke-width: 1;
+}
+
+.grafica-eje {
+  fill: var(--texto-suave);
+  font-size: 12px;
+}
+
+.grafica-linea {
+  fill: none;
+  stroke: var(--rojo);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.grafica-punto {
+  fill: var(--rojo);
+  stroke: var(--tarjeta);
+  stroke-width: 2;
+}
+
+.grafica-toque {
+  fill: transparent;
+  cursor: pointer;
+  outline: none;
+}
+
+.grafica-toque:focus-visible {
+  stroke: var(--texto);
+  stroke-width: 1.5;
+}
+
+.grafica-guia {
+  stroke: var(--texto-suave);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.grafica-aviso {
+  position: absolute;
+  z-index: 1;
+  padding: 6px 10px;
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+  background: var(--tarjeta);
+  box-shadow: var(--sombra);
+  color: var(--texto);
+  font-size: 14px;
+  line-height: 1.3;
+  width: max-content;
+  max-width: 100%;
+  transform: translate(-50%, calc(-100% - 12px));
+  pointer-events: none;
+}
+
+.grafica-aviso small {
+  display: block;
+  color: var(--texto-suave);
+  font-size: 12px;
+}
+
+.tabla-notas summary {
+  color: var(--texto-suave);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.tabla-notas table {
+  width: 100%;
+  margin-top: 8px;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.tabla-notas th,
+.tabla-notas td {
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--borde);
+  text-align: right;
+}
+
+.tabla-notas th:first-child,
+.tabla-notas td:first-child {
+  text-align: left;
+}
+
+.tabla-notas th {
+  color: var(--texto-suave);
+  font-weight: 600;
+}
+
+.lista-fallados {
+  margin: 6px 0 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.lista-fallados li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  border-top: 1px solid var(--borde);
+}
+
+.lista-fallados a {
+  color: var(--texto);
+}
+
+.lista-fallados span {
+  flex: none;
+  color: var(--texto-suave);
+  font-size: 14px;
+}
+
+.fila-tema .chip {
+  display: inline-block;
+  margin-top: 6px;
+}
+
+/* Imprimir (paso 4.3): el mapa se dibuja fuera de la pantalla para sacar su imagen */
+.lienzo-imprimir {
+  position: fixed;
+  top: 0;
+  left: -20000px;
+  pointer-events: none;
+}
+
+/* Los chips que son enlaces (Ir, Practicar, Ver en el mapa), como los que son botones */
+a.chip {
+  display: inline-block;
+  color: var(--texto);
+  text-decoration: none;
+}

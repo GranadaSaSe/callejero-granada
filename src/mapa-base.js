@@ -608,11 +608,14 @@ export const puntosDeSalidas = (salidas) => ({
   })),
 })
 
+// "paraImprimir" (paso 4.3): con el norte arriba, sin botones ni gestos, con el doble de detalle y guardando el
+// dibujo para poder sacar la imagen (getCanvas().toDataURL)
 export function crearMapa(
   lienzo,
   { tramos, zonas, fondo, lugares = VACIO, nombres = VACIO, notas = VACIO, municipios = VACIO, carreteras = VACIO, salidas = VACIO, pueblos = VACIO },
+  { paraImprimir = false } = {},
 ) {
-  const orientacion = leerOrientacion()
+  const orientacion = paraImprimir ? 0 : leerOrientacion()
   const mapa = new Mapa({
     container: lienzo,
     style: estilo(`${location.origin}${import.meta.env.BASE_URL}`, {
@@ -643,7 +646,13 @@ export function crearMapa(
     maxPitch: 0,
     pitchWithRotate: false,
     attributionControl: false,
+    ...(paraImprimir && { interactive: false, pixelRatio: 2, fadeDuration: 0, canvasContextAttributes: { preserveDrawingBuffer: true } }),
   })
+  mapa.on('style.load', () => {
+    if (!mapa.hasImage('flecha')) mapa.addImage('flecha', crearFlecha(), { pixelRatio: 2 })
+    if (!mapa.getLayer('flechas')) mapa.addLayer(CAPA_FLECHAS, 'lugares')
+  })
+  if (paraImprimir) return mapa // los créditos van al pie de cada página del PDF
   mapa.touchPitch.disable()
   // La orientación se recuerda en el dispositivo y la usan el mapa de estudio y los juegos. La brújula
   // vuelve a poner el norte arriba.
@@ -656,9 +665,5 @@ export function crearMapa(
   )
   mapa.addControl(new NavigationControl({ showCompass: true, visualizePitch: false }), 'bottom-right')
   mapa.addControl(new ScaleControl({ unit: 'metric' }), 'bottom-left')
-  mapa.on('style.load', () => {
-    if (!mapa.hasImage('flecha')) mapa.addImage('flecha', crearFlecha(), { pixelRatio: 2 })
-    if (!mapa.getLayer('flechas')) mapa.addLayer(CAPA_FLECHAS, 'lugares')
-  })
   return mapa
 }

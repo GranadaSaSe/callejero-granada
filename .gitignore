@@ -21,3 +21,6 @@ material/
 
 # Archivos de notas recibidos de otras personas (llevan sus nombres): se quedan en este ordenador
 notas-recibidas/
+
+# Capturas de las pruebas con Playwright
+.playwright-mcp/

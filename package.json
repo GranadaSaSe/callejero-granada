@@ -15,7 +15,8 @@
     "revisar": "node scripts/servidor-revision.mjs",
     "notas": "node scripts/leer-notas.mjs",
     "fotos:buscar": "node scripts/buscar-fotos.mjs",
-    "fotos:revisar": "node scripts/servidor-fotos.mjs"
+    "fotos:revisar": "node scripts/servidor-fotos.mjs",
+    "fotos:preparar": "node scripts/preparar-fotos.mjs"
   },
   "devDependencies": {
     "@vite-pwa/assets-generator": "^2.0.0",
@@ -23,6 +24,7 @@
     "vite-plugin-pwa": "^2.0.0"
   },
   "dependencies": {
+    "jspdf": "^4.2.1",
     "maplibre-gl": "^6.16.0"
   }
 }

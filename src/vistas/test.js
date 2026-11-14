@@ -57,6 +57,14 @@ function guardar(clave, valor) {
 }
 
 const nota = (n) => n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+// Del historial se guardan los 30 últimos tests y los 200 últimos simulacros (para la evolución de la nota en Tu
+// progreso, paso 4.4). Hasta la versión 0.22 eran los 30 últimos de todo.
+function cabeEnElHistorial() {
+  let tests = 0
+  let simulacros = 0
+  return (t) => (t.simulacro ? ++simulacros <= 200 : ++tests <= 30)
+}
+
 const textoReloj = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`
 const fecha = (iso) => new Date(iso).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })
 
@@ -210,7 +218,7 @@ export async function abrir(contenedor) {
         ),
         crear('p', { class: 'ficha-nota' }, 'Se corrige con la penalización y el tiempo que elijas abajo, en «Test a tu medida».'),
       ),
-      crear('h2', {}, 'Test a tu medida'),
+      crear('h2', { class: 'titulo-a-tu-medida' }, 'Test a tu medida'),
       crear(
         'p',
         { class: 'intro' },
@@ -514,7 +522,7 @@ export async function abrir(contenedor) {
         dudosas: { marcadas: dudosas.size, contestadas: contestadasDudosas.length, bien: dudosasBien, aporte },
       },
       ...leer(CLAVES.historial, []),
-    ].slice(0, 30))
+    ].filter(cabeEnElHistorial()))
 
     let soloFallos = false
     let soloDudosas = false
@@ -667,8 +675,18 @@ export async function abrir(contenedor) {
   })
 
   return {
-    // Si se va al mapa desde la corrección (o en mitad del test) y se vuelve, sigue donde estaba
-    mostrar() {
+    // Si se va al mapa desde la corrección (o en mitad del test) y se vuelve, sigue donde estaba.
+    // #/test?tema=ID (desde el plan de hoy de Tu progreso) deja marcado solo ese tema, con 20 preguntas.
+    mostrar(parametros) {
+      const tema = parametros?.get('tema')
+      if (pantalla === 'portada' && TEMAS.some((t) => t.id === tema)) {
+        Object.assign(ajustes, { temas: [tema], total: 20 })
+        guardar(CLAVES.ajustes, ajustes)
+        history.replaceState(null, '', '#/test') // al volver atrás no se vuelve a cambiar
+        portada()
+        pagina.querySelector('.titulo-a-tu-medida')?.scrollIntoView({ block: 'start' })
+        return
+      }
       if (pantalla === 'portada') portada()
     },
   }

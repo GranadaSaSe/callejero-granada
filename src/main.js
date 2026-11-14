@@ -16,6 +16,12 @@ const VISTAS = {
   test: { elemento: 'vista-test', cargar: () => import('./vistas/test.js') },
   progreso: { elemento: 'vista-progreso', cargar: () => import('./vistas/progreso.js') },
 }
+// Imprimir (paso 4.3) no está en la app publicada: la persona no quiere que nadie pueda sacar los datos en PDF
+// (decidido el 14-11-2026). Solo se abre con el servidor de desarrollo (npm run dev); al publicar, Vite quita este
+// trozo y la pantalla de imprimir ni siquiera se incluye.
+if (import.meta.env.DEV) {
+  VISTAS.imprimir = { elemento: 'vista-imprimir', cargar: () => import('./vistas/imprimir.js') }
+}
 const abiertas = new Map()
 
 async function navegar() {

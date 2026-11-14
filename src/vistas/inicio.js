@@ -16,11 +16,15 @@ import {
 const SECCIONES = [
   { titulo: 'Mapa de estudio', texto: 'Calles, sentidos, distritos, barrios y lugares de interés', enlace: '#/mapa' },
   { titulo: 'Lista de calles', texto: 'Todas las calles, ordenadas y filtradas como quieras, con el mapa al lado', enlace: '#/calles' },
-  { titulo: 'Jugar', texto: 'Mapa sin nombres: dónde está, cómo se llama y por dónde se circula', enlace: '#/jugar' },
+  { titulo: 'Jugar', texto: 'Mapa sin nombres: dónde está, cómo se llama, por dónde se circula y fotos de los lugares', enlace: '#/jugar' },
   { titulo: 'Ejes principales', texto: 'Las grandes vías y sus cruces, en orden', enlace: '#/ejes' },
   { titulo: 'Tarjetas de repaso', texto: 'Lo que fallas vuelve antes', enlace: '#/tarjetas' },
   { titulo: 'Test tipo examen', texto: 'Por temas, con penalización, nota y corrección', enlace: '#/test' },
-  { titulo: 'Tu progreso', texto: 'Cuenta atrás, racha de días y aciertos por tema', enlace: '#/progreso' },
+  { titulo: 'Tu progreso', texto: 'Plan de hoy, evolución de tu nota, lo que más te cuesta y racha de días', enlace: '#/progreso' },
+  // Imprimir solo sale con el servidor de desarrollo, nunca en la app publicada (ver src/main.js)
+  ...(import.meta.env.DEV
+    ? [{ titulo: 'Imprimir (solo en el ordenador)', texto: 'Mapas mudos y fichas de cada distrito en PDF. No sale en la app publicada', enlace: '#/imprimir' }]
+    : []),
 ]
 
 function fila(texto) {

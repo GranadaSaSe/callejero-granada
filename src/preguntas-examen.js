@@ -83,7 +83,7 @@ const El = (nombre) => `${masculino(nombre) ? 'El' : 'La'} ${nombre}`
 const aEl = (nombre) => `${masculino(nombre) ? 'al' : 'a la'} ${nombre}`
 const deEl = (nombre) => `${masculino(nombre) ? 'del' : 'de la'} ${nombre}`
 // Calles que en realidad son carreteras o enlaces: no se pregunta por ellas como calles
-const NO_ES_CALLE = new Set(['Autovía', 'Carretera', 'Enlace', 'Acceso', 'Vial', 'Rotonda'])
+export const NO_ES_CALLE = new Set(['Autovía', 'Carretera', 'Enlace', 'Acceso', 'Vial', 'Rotonda'])
 
 const ES_TODA = {
   doble: 'De doble sentido en toda su longitud',

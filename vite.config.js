@@ -18,7 +18,18 @@ export default defineConfig({
       workbox: {
         // Todo lo necesario para usar la app sin internet: código, datos de Granada y letras del mapa
         globPatterns: ['**/*.{js,mjs,css,html,json,pbf,png,svg,ico}'],
+        // Piezas de jsPDF (paso 4.3) para pasar páginas web y dibujos SVG a PDF: la app no las usa
+        globIgnores: ['**/html2canvas-*.js', '**/purify.es-*.js', '**/index.es-*.js'],
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
+        // Las fotos de los lugares (paso 4.2) no se guardan al instalar (ocupan mucho): cada una se guarda la
+        // primera vez que se ve, o todas juntas desde el juego de las fotos
+        runtimeCaching: [
+          {
+            urlPattern: /\/fotos\/[\w-]+\.jpg$/,
+            handler: 'CacheFirst',
+            options: { cacheName: 'callejero-fotos', expiration: { maxEntries: 3000 }, cacheableResponse: { statuses: [200] } },
+          },
+        ],
       },
       manifest: {
         name: 'Callejero Granada',
