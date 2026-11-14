@@ -392,6 +392,6 @@ Salidas de autovía: 48 del Parque Norte y 22 del Sur (las de los pueblos, las d
 
 ## Incorporaciones
 
-1045 calles con «¿cómo me incorporo a la calle de su final?» calculado con la red de los trayectos (girando a la derecha, a la izquierda o a los dos lados).
+1061 calles con «¿cómo me incorporo a la calle de su final?» calculado con la red de los trayectos (girando a la derecha, a la izquierda o a los dos lados).
 
 Fuentes: material de la persona · Catastro (Dirección General del Catastro, CC BY 4.0) · © colaboradores de OpenStreetMap (ODbL) · CDAU (Junta de Andalucía, CC BY 4.0).
