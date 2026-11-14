@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Revisión de fotos · Callejero Granada</title>
+    <link rel="icon" href="/favicon.ico" />
+    <link rel="stylesheet" href="/fotos.css" />
+    <script type="module" src="/fotos.js"></script>
+  </head>
+  <body>
+    <div class="disposicion">
+      <aside class="lista">
+        <header class="cabecera">
+          <h1>Revisión de fotos</h1>
+          <p id="progreso" class="progreso">Cargando datos…</p>
+          <div class="barra"><div id="barra" class="barra-relleno"></div></div>
+          <div class="filtros">
+            <select id="categoria" aria-label="Tipo de lugar"></select>
+            <select id="estado" aria-label="Qué lugares ver">
+              <option value="pendientes">por revisar</option>
+              <option value="hechos">ya revisados</option>
+              <option value="todos">todos</option>
+            </select>
+          </div>
+          <input id="buscar" type="search" placeholder="Buscar un lugar…" aria-label="Buscar un lugar" />
+        </header>
+        <ol id="lugares" class="lugares"></ol>
+      </aside>
+
+      <main class="principal">
+        <section id="ficha" class="ficha" hidden>
+          <p id="tipo" class="etiqueta"></p>
+          <h2 id="nombre"></h2>
+          <p id="detalle" class="detalle"></p>
+          <p class="enlaces">
+            <a id="street-view" target="_blank" rel="noopener">Ver en Street View ↗</a>
+            <a id="ver-mapa" target="_blank" rel="noopener">Ver en el mapa ↗</a>
+          </p>
+
+          <p class="pregunta">
+            Toca las fotos en las que se ve <strong>este sitio</strong>, como mucho <span id="maximo"></span>. La primera que
+            toques será la principal.
+          </p>
+          <p id="sin-candidatas" class="aviso" hidden>No he encontrado ninguna foto de este sitio en Wikimedia. Si tienes una tuya, añádela.</p>
+          <div id="fotos" class="fotos"></div>
+
+          <div class="acciones">
+            <button id="guardar" class="principal-boton" disabled>Guardar y siguiente <kbd>Intro</kbd></button>
+            <button id="ninguna" class="secundario">Ninguna es de este sitio <kbd>N</kbd></button>
+            <button id="saltar" class="secundario">Saltar <kbd>S</kbd></button>
+          </div>
+
+          <details class="propias">
+            <summary>Añadir una foto tuya</summary>
+            <p>
+              Elige una o varias fotos de este sitio. Se guardan más pequeñas y sin los datos ocultos del móvil (dónde y
+              cuándo se hicieron). Saldrán en la app para todos, con esta firma:
+            </p>
+            <label class="firma">Firma <input id="firma" type="text" maxlength="40" /></label>
+            <label class="boton-archivo">
+              Elegir fotos…
+              <input id="archivo" type="file" accept="image/*" multiple hidden />
+            </label>
+          </details>
+          <p id="error" class="error" hidden></p>
+        </section>
+
+        <section id="vacio" class="ficha" hidden>
+          <h2 id="vacio-titulo">¡No quedan lugares por revisar!</h2>
+          <p>Tus decisiones están guardadas. Dile a Claude que prepare las fotos para la app.</p>
+        </section>
+      </main>
+    </div>
+
+    <dialog id="ampliada" class="ampliada">
+      <img id="ampliada-img" alt="" />
+      <p id="ampliada-pie"></p>
+      <form method="dialog"><button class="secundario">Cerrar</button></form>
+    </dialog>
+  </body>
+</html>

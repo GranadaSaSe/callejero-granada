@@ -14,6 +14,12 @@
       "port": 4321
     },
     {
+      "name": "revision-fotos",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["scripts/servidor-fotos.mjs", "--sin-abrir"],
+      "port": 4322
+    },
+    {
       "name": "desarrollo",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--", "--port", "5173", "--strictPort"],

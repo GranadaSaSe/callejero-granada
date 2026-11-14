@@ -13,7 +13,9 @@
     "datos:resumen": "node scripts/resumen-datos.mjs",
     "datos:procesar": "node scripts/procesar-datos.mjs",
     "revisar": "node scripts/servidor-revision.mjs",
-    "notas": "node scripts/leer-notas.mjs"
+    "notas": "node scripts/leer-notas.mjs",
+    "fotos:buscar": "node scripts/buscar-fotos.mjs",
+    "fotos:revisar": "node scripts/servidor-fotos.mjs"
   },
   "devDependencies": {
     "@vite-pwa/assets-generator": "^2.0.0",
